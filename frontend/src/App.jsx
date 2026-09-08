@@ -16,6 +16,7 @@ import ClientDetail from './pages/ClientDetail';
 import Invoices from './pages/Invoices';
 import Expenses from './pages/Expenses';
 import Attendance from './pages/Attendance';
+import MyAttendance from './pages/MyAttendance';
 import Payroll from './pages/Payroll';
 import ProtectedRoute from './components/ProtectedRoute';
 export default function App() {
@@ -139,6 +140,14 @@ export default function App() {
         element={
           <ProtectedRoute adminOnly>
             <Expenses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-attendance"
+        element={
+          <ProtectedRoute>
+            <MyAttendance />
           </ProtectedRoute>
         }
       />

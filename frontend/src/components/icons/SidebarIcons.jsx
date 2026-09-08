@@ -67,6 +67,17 @@ export function IconCalendar(props) {
   );
 }
 
+export function IconCalendarCheck(props) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.2" />
+      <path d="M3.5 9.6h17" />
+      <path d="M8 3v4M16 3v4" />
+      <path d="M8.2 14.4l2 2 4.4-4.6" />
+    </Svg>
+  );
+}
+
 export function IconAlarm(props) {
   return (
     <Svg {...props}>

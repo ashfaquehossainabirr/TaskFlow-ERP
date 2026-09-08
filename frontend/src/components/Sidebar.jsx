@@ -11,6 +11,7 @@ import {
   IconCheckSquare,
   IconColumns,
   IconCalendar,
+  IconCalendarCheck,
   IconAlarm,
   IconNotebook,
   IconUsers,
@@ -70,6 +71,7 @@ export default function Sidebar({ isOpen, onClose }) {
         { to: '/calendar', label: 'Calendar', Icon: IconCalendar },
         { to: '/deadlines', label: 'Deadline Watch', Icon: IconAlarm },
         { to: '/notes', label: 'My Notes', Icon: IconNotebook },
+        { to: '/my-attendance', label: 'My Attendance', Icon: IconCalendarCheck },
       ],
     },
     ...(isManager
@@ -100,7 +102,7 @@ export default function Sidebar({ isOpen, onClose }) {
             heading: 'HR',
             items: [
               ...(isAdmin ? [{ to: '/users', label: 'Team & Access', Icon: IconUsers }] : []),
-              { to: '/attendance', label: 'Attendance', Icon: IconClipboardCheck },
+              { to: '/attendance', label: 'Team Attendance', Icon: IconClipboardCheck },
               ...(isAdmin ? [{ to: '/payroll', label: 'Payroll', Icon: IconBanknote }] : []),
               { to: '/employee-stats', label: isAdmin ? 'Employee Stats' : 'My Team', Icon: IconBarChart },
             ],

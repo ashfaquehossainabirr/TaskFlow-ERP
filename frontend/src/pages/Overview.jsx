@@ -4,7 +4,6 @@ import PageShell from '../components/PageShell';
 import StatsCards from '../components/StatsCards';
 import TaskCompletionDonut from '../components/TaskCompletionDonut';
 import PendingTasksList from '../components/PendingTasksList';
-import MyAttendanceCard from '../components/MyAttendanceCard';
 import TaskTable from '../components/TaskTable';
 import TaskDetailModal from '../components/TaskDetailModal';
 import NoticeBoard from '../components/NoticeBoard';
@@ -96,7 +95,6 @@ export default function Overview() {
 
       <div className="overview-top-grid">
         <TaskCompletionDonut stats={stats} loading={loading} />
-        <MyAttendanceCard />
         <div className="pending-tasks-col">
           <PendingTasksList onTaskClick={(task) => setDetailTaskId(task._id)} />
         </div>
@@ -105,31 +103,20 @@ export default function Overview() {
       <style>{`
         .overview-top-grid {
           display: grid;
-          grid-template-columns: minmax(280px, 340px) minmax(260px, 320px) 1fr;
+          grid-template-columns: minmax(280px, 360px) 1fr;
           gap: 20px;
           align-items: stretch;
           margin-bottom: 28px;
         }
         @media (max-width: 1200px) {
           .overview-top-grid {
-            grid-template-columns: minmax(260px, 300px) minmax(240px, 300px) 1fr;
+            grid-template-columns: minmax(260px, 320px) 1fr;
             gap: 16px;
-          }
-        }
-        @media (max-width: 1024px) {
-          .overview-top-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-          .overview-top-grid .pending-tasks-col {
-            grid-column: 1 / -1;
           }
         }
         @media (max-width: 780px) {
           .overview-top-grid {
             grid-template-columns: 1fr;
-          }
-          .overview-top-grid .pending-tasks-col {
-            grid-column: auto;
           }
         }
       `}</style>
