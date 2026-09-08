@@ -1,5 +1,3 @@
-// Returns the number of whole days remaining until the deadline.
-// Negative numbers mean the deadline has passed.
 export function daysRemaining(deadline) {
   const now = new Date();
   const due = new Date(deadline);
@@ -8,7 +6,6 @@ export function daysRemaining(deadline) {
   const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   return Math.round((startOfDue - startOfNow) / msPerDay);
 }
-
 export function formatDaysRemaining(deadline) {
   const days = daysRemaining(deadline);
   if (days < 0) return `${Math.abs(days)}d overdue`;
@@ -16,8 +13,6 @@ export function formatDaysRemaining(deadline) {
   if (days === 1) return '1 day left';
   return `${days} days left`;
 }
-
-// Urgency buckets drive the color coding used across the UI.
 export function urgencyLevel(deadline, status) {
   if (status === 'delivered' || status === 'cancelled') return 'closed';
   const days = daysRemaining(deadline);
@@ -26,7 +21,6 @@ export function urgencyLevel(deadline, status) {
   if (days <= 7) return 'soon';
   return 'normal';
 }
-
 export const STATUS_LABELS = {
   todo: 'To Do',
   'in-progress': 'In Progress',
@@ -34,5 +28,4 @@ export const STATUS_LABELS = {
   cancelled: 'Cancelled',
   hold: 'On Hold',
 };
-
 export const STATUS_ORDER = ['todo', 'in-progress', 'hold', 'delivered', 'cancelled'];

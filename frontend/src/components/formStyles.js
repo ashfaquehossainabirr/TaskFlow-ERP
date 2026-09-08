@@ -1,4 +1,9 @@
-export const fieldWrap = { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 };
+export const fieldWrap = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  marginBottom: 16,
+};
 
 export const labelStyle = {
   fontSize: 12.5,
@@ -19,7 +24,7 @@ export const inputStyle = {
 
 export const primaryBtn = {
   background: 'var(--accent-cyan)',
-  color: '#0b1017',
+  color: 'var(--text-on-accent)',
   border: 'none',
   borderRadius: 8,
   padding: '10px 18px',
@@ -42,7 +47,7 @@ export const secondaryBtn = {
 export const errorBanner = {
   background: 'rgba(239, 100, 97, 0.1)',
   border: '1px solid rgba(239, 100, 97, 0.35)',
-  color: '#ff8a85',
+  color: 'var(--text-error)',
   padding: '10px 12px',
   borderRadius: 8,
   fontSize: 13,

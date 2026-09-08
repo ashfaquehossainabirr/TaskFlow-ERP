@@ -4,10 +4,12 @@ import TaskTable from '../components/TaskTable';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { canManageTasks } from '../utils/roles';
+import Spinner from '../components/Spinner';
 
 export default function DeadlineWatch() {
   const { user } = useAuth();
-  const isAdmin = user.role === 'admin';
+  const isAdmin = canManageTasks(user.role);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detailTaskId, setDetailTaskId] = useState(null);
@@ -28,9 +30,21 @@ export default function DeadlineWatch() {
 
   const handleStatusChange = async (task, status) => {
     const prev = tasks;
-    setTasks((ts) => ts.map((t) => (t._id === task._id ? { ...t, status } : t)));
+    setTasks((ts) =>
+      ts.map((t) =>
+        t._id === task._id
+          ? {
+              ...t,
+              status,
+            }
+          : t
+      )
+    );
+
     try {
-      await api.patch(`/tasks/${task._id}/status`, { status });
+      await api.patch(`/tasks/${task._id}/status`, {
+        status,
+      });
       if (status === 'delivered' || status === 'cancelled') {
         setTasks((ts) => ts.filter((t) => t._id !== task._id));
       }
@@ -39,12 +53,9 @@ export default function DeadlineWatch() {
       alert(err.response?.data?.message || 'Failed to update status');
     }
   };
-
+  
   return (
-    <PageShell
-      title="Deadline Watch"
-      subtitle="Every open task due in 3 days or less, soonest first."
-    >
+    <PageShell title="Deadline Watch" subtitle="Every open task due in 3 days or less, soonest first.">
       <div
         style={{
           display: 'flex',
@@ -56,22 +67,37 @@ export default function DeadlineWatch() {
           borderRadius: 10,
           marginBottom: 22,
           fontSize: 13.5,
-          color: '#ffb454',
+          color: 'var(--text-warning)',
         }}
       >
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ffb454', flexShrink: 0 }} />
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: 'var(--text-warning)',
+            flexShrink: 0,
+          }}
+        />
         {loading
           ? 'Checking deadlines…'
           : `${tasks.length} task${tasks.length === 1 ? '' : 's'} ${isAdmin ? 'across the team' : 'assigned to you'} need attention.`}
       </div>
 
-      <TaskTable
-        tasks={tasks}
-        isAdmin={isAdmin}
-        onStatusChange={handleStatusChange}
-        onRowClick={(task) => setDetailTaskId(task._id)}
-        emptyLabel="Nothing due within 3 days. You're clear."
-      />
+      {loading ? (
+        <div style={{ padding: '48px 0' }}>
+          <Spinner label="Loading tasks…" />
+        </div>
+      ) : (
+        <TaskTable
+          tasks={tasks}
+          isAdmin={isAdmin}
+          showActions={false}
+          onStatusChange={handleStatusChange}
+          onRowClick={(task) => setDetailTaskId(task._id)}
+          emptyLabel="Nothing due within 3 days. You're clear."
+        />
+      )}
 
       {detailTaskId && <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} />}
     </PageShell>

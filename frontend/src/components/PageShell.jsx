@@ -1,40 +1,137 @@
-import { useState } from "react";
-import Sidebar from "./Sidebar";
-import "../styles/PageShell.css";
+import { useState } from 'react';
+import Sidebar from './Sidebar';
 
 export default function PageShell({ title, subtitle, actions, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  
   return (
     <div className="page-shell">
-      {/* SIDEBAR */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* MAIN */}
+      <div className="mobile-topbar">
+        <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+          <span />
+          <span />
+          <span />
+        </button>
+        <span className="mobile-topbar-title">TaskFlow</span>
+      </div>
+
       <main className="page-main">
-        {/* MOBILE HEADER */}
-        <div className="mobile-header">
-          <button
-            className="hamburger"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
-          >
-            ☰
-          </button>
-        </div>
-
-        {/* PAGE HEADER */}
         <div className="page-header">
-          <div className="page-title">
-            <h1>{title}</h1>
-            {subtitle && <p>{subtitle}</p>}
+          <div>
+            <h1 className="page-title">{title}</h1>
+            {subtitle && (
+              <p
+                style={{
+                  margin: '6px 0 0',
+                  color: 'var(--text-secondary)',
+                  fontSize: 14,
+                }}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
-
-          {actions && <div className="page-actions">{actions}</div>}
+          {actions && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                flexWrap: 'wrap',
+              }}
+            >
+              {actions}
+            </div>
+          )}
         </div>
-
         {children}
       </main>
+
+      <style>{`
+        .page-shell {
+          display: flex;
+          min-height: 100vh;
+        }
+        .mobile-topbar {
+          display: none;
+        }
+        .page-main {
+          flex: 1;
+          padding: 32px 40px;
+          max-width: 1920px;
+          min-width: 0;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          margin-bottom: 28px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .page-title {
+          font-family: var(--font-display);
+          font-size: 26px;
+          font-weight: 700;
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+        .hamburger-btn {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 4px;
+          width: 34px;
+          height: 34px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-hairline);
+          border-radius: 8px;
+          cursor: pointer;
+          padding: 0;
+          align-items: center;
+        }
+        .hamburger-btn span {
+          display: block;
+          width: 16px;
+          height: 2px;
+          background: var(--text-secondary);
+          border-radius: 2px;
+        }
+        .mobile-topbar-title {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 16px;
+        }
+        @media (max-width: 900px) {
+          .page-shell {
+            flex-direction: column;
+          }
+          .mobile-topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 120;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border-hairline-soft);
+            padding: 14px 16px;
+          }
+          .page-main {
+            padding: 20px 16px 40px;
+            max-width: 100%;
+          }
+        }
+        @media (max-width: 480px) {
+          .page-main {
+            padding: 16px 12px 32px;
+          }
+          .page-title {
+            font-size: 21px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

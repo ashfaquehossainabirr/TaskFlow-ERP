@@ -3,31 +3,41 @@ import PageShell from '../components/PageShell';
 import TaskTable from '../components/TaskTable';
 import TaskFormModal from '../components/TaskFormModal';
 import TaskDetailModal from '../components/TaskDetailModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { STATUS_LABELS } from '../utils/deadline';
+import { canManageTasks } from '../utils/roles';
+import useDebounce from '../hooks/useDebounce';
+import Spinner from '../components/Spinner';
 
 export default function Tasks() {
   const { user } = useAuth();
-  const isAdmin = user.role === 'admin';
-
+  const isManager = canManageTasks(user.role);
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [search, setSearch] = useState('');
-
+  const debouncedSearch = useDebounce(search, 400);
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [detailTaskId, setDetailTaskId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmDeleteTask, setConfirmDeleteTask] = useState(null);
 
   const loadTasks = async () => {
     setLoading(true);
     try {
       const params = {};
       if (statusFilter) params.status = statusFilter;
-      if (search) params.projectName = search;
-      const res = await api.get('/tasks', { params });
+      if (projectFilter) params.project = projectFilter;
+      if (debouncedSearch) params.search = debouncedSearch;
+      const res = await api.get('/tasks', {
+        params,
+      });
       setTasks(res.data);
     } finally {
       setLoading(false);
@@ -35,26 +45,47 @@ export default function Tasks() {
   };
 
   const loadEmployees = async () => {
-    if (!isAdmin) return;
-    const res = await api.get('/users', { params: { role: 'employee' } });
+    if (!isManager) return;
+    const res = await api.get('/users', {
+      params: {
+        role: 'employee',
+      },
+    });
     setEmployees(res.data);
+  };
+
+  const loadProjects = async () => {
+    const res = await api.get('/projects');
+    setProjects(res.data);
   };
 
   useEffect(() => {
     loadEmployees();
+    loadProjects();
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(loadTasks, 250);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, search]);
+    loadTasks();
+  }, [statusFilter, projectFilter, debouncedSearch]);
 
   const handleStatusChange = async (task, status) => {
     const prev = tasks;
-    setTasks((ts) => ts.map((t) => (t._id === task._id ? { ...t, status } : t)));
+
+    setTasks((ts) =>
+      ts.map((t) =>
+        t._id === task._id
+          ? {
+              ...t,
+              status,
+            }
+          : t
+      )
+    );
+
     try {
-      await api.patch(`/tasks/${task._id}/status`, { status });
+      await api.patch(`/tasks/${task._id}/status`, {
+        status,
+      });
     } catch (err) {
       setTasks(prev);
       alert(err.response?.data?.message || 'Failed to update status');
@@ -69,22 +100,42 @@ export default function Tasks() {
     }
   };
 
-  const handleDelete = async (task) => {
-    if (!window.confirm(`Delete "${task.title}"? This cannot be undone.`)) return;
+  const handleDelete = (task) => setConfirmDeleteTask(task);
+
+  const performDelete = async () => {
+    const task = confirmDeleteTask;
+
+    setDeletingId(task._id);
+    
     try {
       await api.delete(`/tasks/${task._id}`);
       setTasks((ts) => ts.filter((t) => t._id !== task._id));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete task');
+      const stillExists = await api
+        .get(`/tasks/${task._id}`)
+        .then(() => true)
+        .catch((checkErr) => checkErr.response?.status !== 404);
+      if (stillExists) {
+        alert(err.response?.data?.message || 'Failed to delete task');
+      } else {
+        setTasks((ts) => ts.filter((t) => t._id !== task._id));
+      }
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteTask(null);
     }
   };
 
   return (
     <PageShell
-      title={isAdmin ? 'All Tasks' : 'My Tasks'}
-      subtitle={isAdmin ? 'Create, assign, and track every task across the team.' : 'Update the status of tasks assigned to you.'}
+      title={isManager ? 'All Tasks' : 'My Tasks'}
+      subtitle={
+        isManager
+          ? 'Create, assign, and track every task across the team.'
+          : 'Update the status of tasks assigned to you.'
+      }
       actions={
-        isAdmin && (
+        isManager && (
           <button
             onClick={() => {
               setEditingTask(null);
@@ -92,7 +143,7 @@ export default function Tasks() {
             }}
             style={{
               background: 'var(--accent-cyan)',
-              color: '#0b1017',
+              color: 'var(--text-on-accent)',
               border: 'none',
               borderRadius: 8,
               padding: '10px 18px',
@@ -106,11 +157,19 @@ export default function Tasks() {
         )
       }
     >
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
         <input
-          placeholder="Search by project name…"
+          type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tasks by title…"
           style={{
             background: 'var(--bg-inset)',
             border: '1px solid var(--border-hairline)',
@@ -119,8 +178,29 @@ export default function Tasks() {
             fontSize: 13.5,
             color: 'var(--text-primary)',
             minWidth: 220,
+            flex: '1 1 220px',
           }}
         />
+        <select
+          value={projectFilter}
+          onChange={(e) => setProjectFilter(e.target.value)}
+          style={{
+            background: 'var(--bg-inset)',
+            border: '1px solid var(--border-hairline)',
+            borderRadius: 8,
+            padding: '9px 12px',
+            fontSize: 13.5,
+            color: 'var(--text-primary)',
+            minWidth: 200,
+          }}
+        >
+          <option value="">All projects</option>
+          {projects.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -142,23 +222,31 @@ export default function Tasks() {
         </select>
       </div>
 
-      <TaskTable
-        tasks={tasks}
-        isAdmin={isAdmin}
-        onStatusChange={handleStatusChange}
-        onEdit={(task) => {
-          setEditingTask(task);
-          setShowForm(true);
-        }}
-        onDelete={handleDelete}
-        onRowClick={(task) => setDetailTaskId(task._id)}
-        emptyLabel={loading ? 'Loading tasks…' : 'No tasks match your filters.'}
-      />
+      {loading ? (
+        <div style={{ padding: '48px 0' }}>
+          <Spinner label="Loading tasks…" />
+        </div>
+      ) : (
+        <TaskTable
+          tasks={tasks}
+          isAdmin={isManager}
+          onStatusChange={handleStatusChange}
+          onEdit={(task) => {
+            setEditingTask(task);
+            setShowForm(true);
+          }}
+          onDelete={handleDelete}
+          deletingId={deletingId}
+          onRowClick={(task) => setDetailTaskId(task._id)}
+          emptyLabel="No tasks match your filters."
+        />
+      )}
 
       {showForm && (
         <TaskFormModal
           task={editingTask}
           employees={employees}
+          projects={projects}
           onClose={() => setShowForm(false)}
           onSaved={() => {
             setShowForm(false);
@@ -169,6 +257,16 @@ export default function Tasks() {
       )}
 
       {detailTaskId && <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} />}
+
+      {confirmDeleteTask && (
+        <ConfirmModal
+          title="Delete task"
+          message={`Delete "${confirmDeleteTask.title}"? This cannot be undone.`}
+          confirmLabel="Delete task"
+          onConfirm={performDelete}
+          onClose={() => setConfirmDeleteTask(null)}
+        />
+      )}
     </PageShell>
   );
 }
