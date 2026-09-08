@@ -1,5 +1,7 @@
+import { createPortal } from 'react-dom';
+
 export default function Modal({ title, onClose, children, width = 480 }) {
-  return (
+  const modal = (
     <div
       onClick={onClose}
       className="app-modal-overlay"
@@ -22,7 +24,8 @@ export default function Modal({ title, onClose, children, width = 480 }) {
           width: '100%',
           maxWidth: width,
           maxHeight: '88vh',
-          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
           background: 'var(--bg-panel-raised)',
           border: '1px solid var(--border-hairline)',
           borderRadius: 'var(--radius-lg)',
@@ -30,12 +33,21 @@ export default function Modal({ title, onClose, children, width = 480 }) {
         }}
       >
         <div
+          className="app-modal-header"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: 12,
             padding: '18px 22px',
             borderBottom: '1px solid var(--border-hairline-soft)',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            background: 'inherit',
+            borderTopLeftRadius: 'var(--radius-lg)',
+            borderTopRightRadius: 'var(--radius-lg)',
+            zIndex: 1,
           }}
         >
           <h2
@@ -44,6 +56,10 @@ export default function Modal({ title, onClose, children, width = 480 }) {
               fontSize: 17,
               fontWeight: 700,
               margin: 0,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
             {title}
@@ -59,14 +75,18 @@ export default function Modal({ title, onClose, children, width = 480 }) {
               cursor: 'pointer',
               lineHeight: 1,
               padding: 4,
+              flexShrink: 0,
             }}
           >
             ×
           </button>
         </div>
         <div
+          className="app-modal-body"
           style={{
             padding: 22,
+            overflowY: 'auto',
+            minHeight: 0,
           }}
         >
           {children}
@@ -103,7 +123,28 @@ export default function Modal({ title, onClose, children, width = 480 }) {
             animation-duration: 0.001ms !important;
           }
         }
+
+        @media screen and (max-width: 640px) {
+          .app-modal-overlay {
+            padding: 0 !important;
+            align-items: flex-end !important;
+          }
+          .app-modal-box {
+            max-width: 100% !important;
+            width: 100% !important;
+            max-height: 92dvh !important;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+          }
+          .app-modal-header {
+            padding: 14px 16px !important;
+          }
+          .app-modal-body {
+            padding: 16px !important;
+          }
+        }
       `}</style>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
