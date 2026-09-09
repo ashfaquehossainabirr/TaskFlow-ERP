@@ -3,6 +3,7 @@ import PageShell from '../components/PageShell';
 import ExpenseFormModal from '../components/ExpenseFormModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
+import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
 import { exactMoney } from '../utils/currency';
 import { EXPENSE_CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from '../erp/badges';
@@ -12,6 +13,7 @@ export default function Expenses() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -50,7 +52,18 @@ export default function Expenses() {
     setConfirmDelete(null);
   };
 
-  const total = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
+  const filteredExpenses = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return expenses;
+    return expenses.filter((e) => {
+      const title = (e.title || '').toLowerCase();
+      const vendor = (e.vendor || '').toLowerCase();
+      const category = (EXPENSE_CATEGORY_LABELS[e.category] || '').toLowerCase();
+      return title.includes(q) || vendor.includes(q) || category.includes(q);
+    });
+  }, [expenses, search]);
+
+  const total = useMemo(() => filteredExpenses.reduce((sum, e) => sum + e.amount, 0), [filteredExpenses]);
 
   return (
     <PageShell
@@ -92,7 +105,7 @@ export default function Expenses() {
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
@@ -112,6 +125,12 @@ export default function Expenses() {
             </option>
           ))}
         </select>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search expenses by title, vendor, or category…" />
+        {search && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            {filteredExpenses.length} of {expenses.length} match
+          </span>
+        )}
       </div>
 
       <div
@@ -151,7 +170,14 @@ export default function Expenses() {
                   </td>
                 </tr>
               )}
-              {expenses.map((e) => (
+              {!loading && expenses.length > 0 && filteredExpenses.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No expenses match "{search}".
+                  </td>
+                </tr>
+              )}
+              {filteredExpenses.map((e) => (
                 <tr key={e._id}>
                   <td style={tdStyle}>{e.title}</td>
                   <td style={tdStyle}>{EXPENSE_CATEGORY_LABELS[e.category]}</td>

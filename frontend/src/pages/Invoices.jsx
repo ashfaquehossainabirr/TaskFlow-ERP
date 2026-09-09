@@ -3,6 +3,7 @@ import PageShell from '../components/PageShell';
 import InvoiceFormModal from '../components/InvoiceFormModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
+import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
 import { exactMoney } from '../utils/currency';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, pillStyle } from '../erp/badges';
@@ -14,6 +15,7 @@ export default function Invoices() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -71,6 +73,18 @@ export default function Invoices() {
     [stats]
   );
 
+  const filteredInvoices = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((inv) => {
+      const number = (inv.invoiceNumber || '').toLowerCase();
+      const clientName = (inv.client?.name || '').toLowerCase();
+      const clientCompany = (inv.client?.company || '').toLowerCase();
+      const projectName = (inv.project?.name || '').toLowerCase();
+      return number.includes(q) || clientName.includes(q) || clientCompany.includes(q) || projectName.includes(q);
+    });
+  }, [invoices, search]);
+
   return (
     <PageShell
       title="Invoices"
@@ -117,7 +131,7 @@ export default function Invoices() {
         ))}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -137,6 +151,12 @@ export default function Invoices() {
             </option>
           ))}
         </select>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search invoices by number, client, or project…" />
+        {search && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            {filteredInvoices.length} of {invoices.length} match
+          </span>
+        )}
       </div>
 
       <div
@@ -176,7 +196,14 @@ export default function Invoices() {
                   </td>
                 </tr>
               )}
-              {invoices.map((inv) => (
+              {!loading && invoices.length > 0 && filteredInvoices.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No invoices match "{search}".
+                  </td>
+                </tr>
+              )}
+              {filteredInvoices.map((inv) => (
                 <tr key={inv._id}>
                   <td style={tdStyle} className="mono">
                     {inv.invoiceNumber}

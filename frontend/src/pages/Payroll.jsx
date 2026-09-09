@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PageShell from '../components/PageShell';
 import PayrollEditModal from '../components/PayrollEditModal';
 import Spinner from '../components/Spinner';
+import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
 import { exactMoney } from '../utils/currency';
 import { PAYROLL_STATUS_COLORS, pillStyle } from '../erp/badges';
@@ -15,6 +16,7 @@ export default function Payroll() {
   const [generating, setGenerating] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [banner, setBanner] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -56,11 +58,22 @@ export default function Payroll() {
     load();
   };
 
+  const filteredRecords = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return records;
+    return records.filter((r) => {
+      const name = (r.employee?.name || '').toLowerCase();
+      const designation = (r.employee?.designation || '').toLowerCase();
+      const department = (r.employee?.department || '').toLowerCase();
+      return name.includes(q) || designation.includes(q) || department.includes(q);
+    });
+  }, [records, search]);
+
   const totals = useMemo(() => {
-    const netTotal = records.reduce((sum, r) => sum + r.netPay, 0);
-    const paidTotal = records.filter((r) => r.status === 'paid').reduce((sum, r) => sum + r.netPay, 0);
+    const netTotal = filteredRecords.reduce((sum, r) => sum + r.netPay, 0);
+    const paidTotal = filteredRecords.filter((r) => r.status === 'paid').reduce((sum, r) => sum + r.netPay, 0);
     return { netTotal, paidTotal, pendingTotal: netTotal - paidTotal };
-  }, [records]);
+  }, [filteredRecords]);
 
   return (
     <PageShell
@@ -142,6 +155,15 @@ export default function Payroll() {
         salary set are skipped.
       </p>
 
+      <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search payroll by employee, role, or department…" />
+        {search && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            {filteredRecords.length} of {records.length} match
+          </span>
+        )}
+      </div>
+
       <div
         style={{
           background: 'var(--bg-panel)',
@@ -179,7 +201,14 @@ export default function Payroll() {
                   </td>
                 </tr>
               )}
-              {records.map((r) => (
+              {!loading && records.length > 0 && filteredRecords.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No payslips match "{search}".
+                  </td>
+                </tr>
+              )}
+              {filteredRecords.map((r) => (
                 <tr key={r._id}>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 600 }}>{r.employee?.name}</div>
