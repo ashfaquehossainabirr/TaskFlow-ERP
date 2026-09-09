@@ -29,6 +29,7 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState('');
+  const [search, setSearch] = useState('');
 
   const [offDayOpen, setOffDayOpen] = useState(false);
   const [offDayStart, setOffDayStart] = useState(todayStr());
@@ -88,6 +89,17 @@ export default function Attendance() {
     return counts;
   }, [records, roster]);
 
+  const filteredRoster = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return roster;
+    return roster.filter((emp) => {
+      const name = (emp.name || '').toLowerCase();
+      const email = (emp.email || '').toLowerCase();
+      const dept = (emp.department || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || dept.includes(q);
+    });
+  }, [roster, search]);
+
   const saveAll = async () => {
     setSaving(true);
     setBanner('');
@@ -120,7 +132,16 @@ export default function Attendance() {
   };
 
   const toggleOffDayAll = () => {
-    setOffDaySelected((prev) => (prev.size === roster.length ? new Set() : new Set(roster.map((emp) => emp._id))));
+    setOffDaySelected((prev) => {
+      const filteredIds = filteredRoster.map((emp) => emp._id);
+      const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => prev.has(id));
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...filteredIds]);
+    });
   };
 
   const offDayDates = useMemo(() => dateRange(offDayStart, offDayEnd), [offDayStart, offDayEnd]);
@@ -254,7 +275,7 @@ export default function Attendance() {
                 Employees
               </span>
               <button type="button" onClick={toggleOffDayAll} style={{ ...secondaryBtn, padding: '5px 10px', fontSize: 12 }}>
-                {offDaySelected.size === roster.length && roster.length > 0 ? 'Clear all' : 'Select all'}
+                {filteredRoster.length > 0 && filteredRoster.every((emp) => offDaySelected.has(emp._id)) ? 'Clear all' : 'Select all'}
               </button>
             </div>
             <div
@@ -273,7 +294,10 @@ export default function Attendance() {
               {roster.length === 0 && (
                 <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No team members found.</span>
               )}
-              {roster.map((emp) => (
+              {roster.length > 0 && filteredRoster.length === 0 && (
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No employees match your search.</span>
+              )}
+              {filteredRoster.map((emp) => (
                 <label
                   key={emp._id}
                   style={{
@@ -343,6 +367,71 @@ export default function Attendance() {
           padding: 10,
         }}
       >
+        <div style={{ padding: '4px 6px 12px' }}>
+          <div style={{ position: 'relative', maxWidth: 320 }}>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{
+                position: 'absolute',
+                left: 11,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                pointerEvents: 'none',
+              }}
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search employees by name, department, or email…"
+              style={{
+                width: '100%',
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border-hairline)',
+                borderRadius: 8,
+                padding: '9px 12px 9px 32px',
+                fontSize: 13.5,
+                color: 'var(--text-primary)',
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: 15,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  padding: 2,
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {search && (
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, paddingLeft: 2 }}>
+              {filteredRoster.length} of {roster.length} employee{roster.length === 1 ? '' : 's'} match
+            </div>
+          )}
+        </div>
         <div style={{ overflowX: 'auto', maxHeight: 560, overflowY: 'auto', paddingRight: 6 }}>
           <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg-panel)' }}>
@@ -371,7 +460,14 @@ export default function Attendance() {
                   </td>
                 </tr>
               )}
-              {roster.map((emp) => (
+              {!loading && roster.length > 0 && filteredRoster.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No employees match "{search}".
+                  </td>
+                </tr>
+              )}
+              {filteredRoster.map((emp) => (
                 <tr key={emp._id}>
                   <td style={tdStyle}>{emp.name}</td>
                   <td style={tdStyle}>{emp.department || '—'}</td>
