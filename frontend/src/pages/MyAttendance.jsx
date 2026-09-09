@@ -5,7 +5,16 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS, pillStyle } from '../erp/badges';
 
+const ATTENDANCE_STATUS_SHORT = {
+  present: 'P',
+  absent: 'A',
+  'half-day': 'HD',
+  leave: 'Lv',
+  holiday: 'Hol',
+};
+
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const pad2 = (n) => String(n).padStart(2, '0');
 const dateKey = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
 
@@ -24,6 +33,11 @@ export default function MyAttendance() {
   const monthStr = `${view.year}-${pad2(view.month + 1)}`;
   const isCurrentMonth = view.year === today.getFullYear() && view.month === today.getMonth();
   const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+  // Employees can look a few months ahead so off days/holidays admins set in
+  // advance are visible, without opening up unlimited future browsing.
+  const MAX_FUTURE_MONTHS = 3;
+  const monthsAhead = (view.year - today.getFullYear()) * 12 + (view.month - today.getMonth());
+  const atMaxFutureMonth = monthsAhead >= MAX_FUTURE_MONTHS;
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +109,7 @@ export default function MyAttendance() {
     });
   };
   const goNext = () => {
-    if (isCurrentMonth) return;
+    if (atMaxFutureMonth) return;
     setView((v) => {
       const m = v.month + 1;
       return m > 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: m };
@@ -118,8 +132,8 @@ export default function MyAttendance() {
             onClick={goNext}
             className="ma-nav-btn"
             aria-label="Next month"
-            disabled={isCurrentMonth}
-            style={isCurrentMonth ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
+            disabled={atMaxFutureMonth}
+            style={atMaxFutureMonth ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
           >
             ›
           </button>
@@ -196,9 +210,10 @@ export default function MyAttendance() {
         ) : (
           <>
             <div className="ma-weekday-row">
-              {WEEKDAYS.map((wd) => (
+              {WEEKDAYS.map((wd, i) => (
                 <div key={wd} className="ma-weekday-cell">
-                  {wd}
+                  <span className="ma-weekday-full">{wd}</span>
+                  <span className="ma-weekday-short">{WEEKDAYS_SHORT[i]}</span>
                 </div>
               ))}
             </div>
@@ -212,12 +227,21 @@ export default function MyAttendance() {
                     className={`ma-day-cell${cell.isToday ? ' ma-day-today' : ''}${cell.isFuture ? ' ma-day-future' : ''}`}
                   >
                     <span className="ma-day-number">{cell.day}</span>
-                    {cell.record && (
+                    {(cell.record || !cell.isFuture) && (
                       <span
-                        className="ma-day-dot"
-                        style={{ background: ATTENDANCE_STATUS_COLORS[cell.record.status] }}
-                        title={ATTENDANCE_STATUS_LABELS[cell.record.status]}
-                      />
+                        className="ma-day-status"
+                        style={{
+                          color: cell.record ? ATTENDANCE_STATUS_COLORS[cell.record.status] : ATTENDANCE_STATUS_COLORS.absent,
+                        }}
+                        title={cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_STATUS_LABELS.absent}
+                      >
+                        <span className="ma-day-status-full">
+                          {cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_STATUS_LABELS.absent}
+                        </span>
+                        <span className="ma-day-status-short">
+                          {cell.record ? ATTENDANCE_STATUS_SHORT[cell.record.status] : ATTENDANCE_STATUS_SHORT.absent}
+                        </span>
+                      </span>
                     )}
                   </div>
                 )
@@ -372,6 +396,9 @@ export default function MyAttendance() {
           letter-spacing: 0.04em;
           padding: 4px 0;
         }
+        .ma-weekday-short {
+          display: none;
+        }
         .ma-calendar-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
@@ -405,41 +432,99 @@ export default function MyAttendance() {
           color: var(--text-primary);
           font-family: var(--font-mono);
         }
-        .ma-day-dot {
+        .ma-day-status {
           align-self: center;
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
+          font-size: 9.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          text-align: center;
+          line-height: 1.2;
           margin-bottom: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .ma-day-status-short {
+          display: none;
         }
 
+        /* ===== Desktop (large screens, > 1280px): roomy layout ===== */
+        @media (min-width: 1281px) {
+          .ma-calendar-panel {
+            padding: 24px;
+          }
+          .ma-calendar-grid,
+          .ma-weekday-row {
+            gap: 8px;
+          }
+          .ma-day-cell {
+            padding: 8px;
+          }
+          .ma-day-status {
+            font-size: 10.5px;
+          }
+        }
+
+        /* ===== Laptop (900px–1280px) ===== */
+        @media (max-width: 1280px) {
+          .ma-calendar-panel {
+            padding: 18px;
+          }
+        }
         @media (max-width: 1024px) {
           .ma-calendar-panel {
             padding: 16px;
           }
         }
-        @media (max-width: 768px) {
+
+        /* ===== Tablet (561px–900px): sidebar collapses to top bar here ===== */
+        @media (max-width: 900px) {
           .ma-stats-grid {
-            grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
             gap: 10px;
           }
           .ma-stat-card {
             padding: 10px 12px;
           }
           .ma-stat-value {
-            font-size: 17px;
+            font-size: 18px;
           }
+          .ma-calendar-grid,
+          .ma-weekday-row {
+            gap: 5px;
+          }
+          .ma-day-number {
+            font-size: 12px;
+          }
+          .ma-day-status {
+            font-size: 9.5px;
+          }
+        }
+        @media (max-width: 768px) {
           .ma-day-number {
             font-size: 11.5px;
           }
         }
+
+        /* ===== Mobile (401px–560px) ===== */
         @media (max-width: 560px) {
+          .ma-today-banner {
+            padding: 12px 14px;
+          }
           .ma-month-label {
             min-width: 0;
             font-size: 13px;
           }
+          .ma-weekday-full {
+            display: none;
+          }
+          .ma-weekday-short {
+            display: inline;
+          }
           .ma-weekday-cell {
-            font-size: 9.5px;
+            font-size: 11px;
             padding: 2px 0;
           }
           .ma-calendar-grid,
@@ -449,13 +534,14 @@ export default function MyAttendance() {
           .ma-day-cell {
             padding: 4px;
             border-radius: 6px;
+            aspect-ratio: auto;
+            min-height: 46px;
           }
           .ma-day-number {
             font-size: 10.5px;
           }
-          .ma-day-dot {
-            width: 7px;
-            height: 7px;
+          .ma-day-status {
+            font-size: 8px;
           }
           .ma-legend {
             gap: 8px;
@@ -464,13 +550,41 @@ export default function MyAttendance() {
             font-size: 10.5px;
           }
         }
+
+        /* ===== Small mobile (<= 400px) ===== */
         @media (max-width: 400px) {
+          .ma-day-cell {
+            min-height: 40px;
+          }
+          .ma-day-number {
+            font-size: 9.5px;
+          }
+          .ma-day-status-full {
+            display: none;
+          }
+          .ma-day-status-short {
+            display: inline;
+          }
+          .ma-day-status {
+            font-size: 9px;
+          }
+          .ma-stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 8px;
+          }
+        }
+
+        /* ===== Extra-small mobile (<= 340px) ===== */
+        @media (max-width: 340px) {
+          .ma-day-cell {
+            min-height: 36px;
+            padding: 3px;
+          }
           .ma-day-number {
             font-size: 9px;
           }
-          .ma-day-dot {
-            width: 6px;
-            height: 6px;
+          .ma-day-status {
+            font-size: 8.5px;
           }
         }
       `}</style>

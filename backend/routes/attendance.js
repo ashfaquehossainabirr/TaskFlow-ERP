@@ -92,33 +92,42 @@ router.post('/', authorize('admin', 'manager'), async (req, res) => {
   }
 });
 
-// Bulk mark attendance for multiple employees on one day (e.g. "mark all present").
+// Bulk mark attendance for multiple employees on one day, or across a range of
+// days at once (e.g. "mark all present" for today, or "set an off day" for a
+// week). Accepts either `date` (single day, back-compat) or `dates` (array of
+// day strings) plus `entries`: [{ employee, status, notes? }]. `notes` at the
+// top level applies to every entry unless the entry has its own.
 router.post('/bulk', authorize('admin', 'manager'), async (req, res) => {
   try {
-    const { date, entries } = req.body; // entries: [{ employee, status }]
-    if (!date || !Array.isArray(entries) || entries.length === 0) {
-      return res.status(400).json({ message: 'Date and at least one entry are required' });
+    const { date, dates, entries, notes } = req.body;
+    const dateList = Array.isArray(dates) && dates.length > 0 ? dates : date ? [date] : [];
+    if (dateList.length === 0 || !Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ message: 'At least one date and one entry are required' });
     }
     let allowedIds = null;
     if (req.user.role === 'manager') {
       allowedIds = (await getTeamMemberIds(req.user._id)).map(String);
     }
-    const day = new Date(date);
-    day.setHours(0, 0, 0, 0);
     const results = [];
-    for (const entry of entries) {
-      if (allowedIds && !allowedIds.includes(String(entry.employee))) continue;
-      const record = await Attendance.findOneAndUpdate(
-        { employee: entry.employee, date: day },
-        {
-          employee: entry.employee,
-          date: day,
-          status: Attendance.STATUS_VALUES.includes(entry.status) ? entry.status : 'present',
-          markedBy: req.user._id,
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      results.push(record);
+    for (const rawDate of dateList) {
+      const day = new Date(rawDate);
+      if (Number.isNaN(day.getTime())) continue;
+      day.setHours(0, 0, 0, 0);
+      for (const entry of entries) {
+        if (allowedIds && !allowedIds.includes(String(entry.employee))) continue;
+        const record = await Attendance.findOneAndUpdate(
+          { employee: entry.employee, date: day },
+          {
+            employee: entry.employee,
+            date: day,
+            status: Attendance.STATUS_VALUES.includes(entry.status) ? entry.status : 'present',
+            notes: entry.notes || notes || '',
+            markedBy: req.user._id,
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        results.push(record);
+      }
     }
     res.status(201).json(results);
   } catch (err) {

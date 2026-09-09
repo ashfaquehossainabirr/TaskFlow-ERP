@@ -6,6 +6,22 @@ import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS, pillStyle } from '.
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+function dateRange(startStr, endStr) {
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return [];
+  const days = [];
+  const cursor = new Date(start);
+  // Cap at 62 days so a mistyped range can't trigger thousands of writes.
+  let guard = 0;
+  while (cursor <= end && guard < 62) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+    guard += 1;
+  }
+  return days;
+}
+
 export default function Attendance() {
   const [date, setDate] = useState(todayStr());
   const [roster, setRoster] = useState([]);
@@ -13,6 +29,14 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState('');
+
+  const [offDayOpen, setOffDayOpen] = useState(false);
+  const [offDayStart, setOffDayStart] = useState(todayStr());
+  const [offDayEnd, setOffDayEnd] = useState(todayStr());
+  const [offDaySelected, setOffDaySelected] = useState(new Set());
+  const [offDayNotes, setOffDayNotes] = useState('');
+  const [offDaySaving, setOffDaySaving] = useState(false);
+  const [offDayBanner, setOffDayBanner] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -86,16 +110,57 @@ export default function Attendance() {
     }
   };
 
+  const toggleOffDayEmployee = (employeeId) => {
+    setOffDaySelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
+      return next;
+    });
+  };
+
+  const toggleOffDayAll = () => {
+    setOffDaySelected((prev) => (prev.size === roster.length ? new Set() : new Set(roster.map((emp) => emp._id))));
+  };
+
+  const offDayDates = useMemo(() => dateRange(offDayStart, offDayEnd), [offDayStart, offDayEnd]);
+
+  const saveOffDay = async () => {
+    setOffDayBanner('');
+    if (offDaySelected.size === 0) {
+      setOffDayBanner('Select at least one employee.');
+      return;
+    }
+    if (offDayDates.length === 0) {
+      setOffDayBanner('Choose a valid date range (end date on or after the start date).');
+      return;
+    }
+    setOffDaySaving(true);
+    try {
+      const entries = Array.from(offDaySelected).map((employeeId) => ({ employee: employeeId, status: 'holiday' }));
+      await api.post('/attendance/bulk', { dates: offDayDates, entries, notes: offDayNotes });
+      setOffDayBanner(
+        `Off day set for ${entries.length} employee${entries.length === 1 ? '' : 's'} across ${offDayDates.length} day${
+          offDayDates.length === 1 ? '' : 's'
+        }.`
+      );
+      if (offDayDates.includes(date)) load();
+    } catch (err) {
+      setOffDayBanner(err.response?.data?.message || 'Failed to set off day');
+    } finally {
+      setOffDaySaving(false);
+    }
+  };
+
   return (
     <PageShell
       title="Attendance"
       subtitle="Mark daily attendance for your team."
       actions={
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="date"
             value={date}
-            max={todayStr()}
             onChange={(e) => setDate(e.target.value)}
             style={{
               background: 'var(--bg-inset)',
@@ -108,6 +173,9 @@ export default function Attendance() {
           />
           <button onClick={markAllPresent} style={secondaryBtn}>
             Mark all present
+          </button>
+          <button onClick={() => setOffDayOpen((v) => !v)} style={secondaryBtn}>
+            {offDayOpen ? 'Close off day panel' : 'Set off day'}
           </button>
           <button onClick={saveAll} disabled={saving} style={primaryBtn}>
             {saving ? 'Saving…' : 'Save attendance'}
@@ -128,6 +196,122 @@ export default function Attendance() {
           }}
         >
           {banner}
+        </div>
+      )}
+
+      {offDayOpen && (
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-hairline-soft)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 18,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+            <div>
+              <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font-display)', fontSize: 15.5, fontWeight: 700 }}>Set off day</h2>
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                Mark a holiday/off day for one or more employees. It syncs immediately to their attendance page.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+            <label style={offDayLabelStyle}>
+              Start date
+              <input
+                type="date"
+                value={offDayStart}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setOffDayStart(val);
+                  setOffDayEnd((prevEnd) => (prevEnd < val ? val : prevEnd));
+                }}
+                style={offDayInputStyle}
+              />
+            </label>
+            <label style={offDayLabelStyle}>
+              End date
+              <input type="date" value={offDayEnd} min={offDayStart} onChange={(e) => setOffDayEnd(e.target.value)} style={offDayInputStyle} />
+            </label>
+            <label style={offDayLabelStyle}>
+              Reason / notes (optional)
+              <input
+                type="text"
+                value={offDayNotes}
+                onChange={(e) => setOffDayNotes(e.target.value)}
+                placeholder="e.g. National holiday"
+                style={offDayInputStyle}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Employees
+              </span>
+              <button type="button" onClick={toggleOffDayAll} style={{ ...secondaryBtn, padding: '5px 10px', fontSize: 12 }}>
+                {offDaySelected.size === roster.length && roster.length > 0 ? 'Clear all' : 'Select all'}
+              </button>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: 8,
+                maxHeight: 220,
+                overflowY: 'auto',
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border-hairline)',
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              {roster.length === 0 && (
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No team members found.</span>
+              )}
+              {roster.map((emp) => (
+                <label
+                  key={emp._id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 13,
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={offDaySelected.has(emp._id)}
+                    onChange={() => toggleOffDayEmployee(emp._id)}
+                  />
+                  {emp.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {offDayBanner && (
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12 }}>{offDayBanner}</div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={saveOffDay} disabled={offDaySaving} style={primaryBtn}>
+              {offDaySaving ? 'Saving…' : 'Set as off day'}
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {offDayDates.length > 0
+                ? `${offDayDates.length} day${offDayDates.length === 1 ? '' : 's'} · ${offDaySelected.size} employee${
+                    offDaySelected.size === 1 ? '' : 's'
+                  } selected`
+                : 'Pick a valid date range'}
+            </span>
+          </div>
         </div>
       )}
 
@@ -258,4 +442,25 @@ const secondaryBtn = {
   fontSize: 13.5,
   fontWeight: 600,
   cursor: 'pointer',
+};
+const offDayLabelStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  fontSize: 11.5,
+  fontWeight: 700,
+  color: 'var(--text-muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+};
+const offDayInputStyle = {
+  background: 'var(--bg-inset)',
+  border: '1px solid var(--border-hairline)',
+  borderRadius: 8,
+  padding: '9px 12px',
+  fontSize: 13.5,
+  fontWeight: 400,
+  textTransform: 'none',
+  letterSpacing: 'normal',
+  color: 'var(--text-primary)',
 };
