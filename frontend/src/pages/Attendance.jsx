@@ -30,6 +30,7 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [offDayOpen, setOffDayOpen] = useState(false);
   const [offDayStart, setOffDayStart] = useState(todayStr());
@@ -62,6 +63,13 @@ export default function Attendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
+  // Debounce the search box so filtering (and the "X of Y match" count)
+  // only recomputes ~300ms after the admin stops typing.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const setStatus = (employeeId, status) => {
     setRecords((r) => ({
       ...r,
@@ -90,7 +98,7 @@ export default function Attendance() {
   }, [records, roster]);
 
   const filteredRoster = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return roster;
     return roster.filter((emp) => {
       const name = (emp.name || '').toLowerCase();
@@ -98,7 +106,7 @@ export default function Attendance() {
       const dept = (emp.department || '').toLowerCase();
       return name.includes(q) || email.includes(q) || dept.includes(q);
     });
-  }, [roster, search]);
+  }, [roster, debouncedSearch]);
 
   const saveAll = async () => {
     setSaving(true);
@@ -368,7 +376,7 @@ export default function Attendance() {
         }}
       >
         <div style={{ padding: '4px 6px 12px' }}>
-          <div style={{ position: 'relative', maxWidth: 320 }}>
+          <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
             <svg
               width="15"
               height="15"
@@ -463,7 +471,7 @@ export default function Attendance() {
               {!loading && roster.length > 0 && filteredRoster.length === 0 && (
                 <tr>
                   <td colSpan={3} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No employees match "{search}".
+                    No employees match "{debouncedSearch}".
                   </td>
                 </tr>
               )}
