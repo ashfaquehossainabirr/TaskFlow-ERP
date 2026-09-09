@@ -39,6 +39,8 @@ export default function Attendance() {
   const [offDayNotes, setOffDayNotes] = useState('');
   const [offDaySaving, setOffDaySaving] = useState(false);
   const [offDayBanner, setOffDayBanner] = useState('');
+  const [offDayQuery, setOffDayQuery] = useState('');
+  const [offDaySuggestOpen, setOffDaySuggestOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -139,20 +141,33 @@ export default function Attendance() {
     });
   };
 
-  const toggleOffDayAll = () => {
-    setOffDaySelected((prev) => {
-      const filteredIds = filteredRoster.map((emp) => emp._id);
-      const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => prev.has(id));
-      if (allFilteredSelected) {
-        const next = new Set(prev);
-        filteredIds.forEach((id) => next.delete(id));
-        return next;
-      }
-      return new Set([...prev, ...filteredIds]);
-    });
-  };
-
   const offDayDates = useMemo(() => dateRange(offDayStart, offDayEnd), [offDayStart, offDayEnd]);
+
+  // Employees still available to add, matching the off-day search box (or the
+  // first handful of the roster when the box is empty), for the dropdown.
+  const offDaySuggestions = useMemo(() => {
+    const q = offDayQuery.trim().toLowerCase();
+    const pool = roster.filter((emp) => !offDaySelected.has(emp._id));
+    const matches = q
+      ? pool.filter((emp) => {
+          const name = (emp.name || '').toLowerCase();
+          const email = (emp.email || '').toLowerCase();
+          const dept = (emp.department || '').toLowerCase();
+          return name.includes(q) || email.includes(q) || dept.includes(q);
+        })
+      : pool;
+    return matches.slice(0, 8);
+  }, [roster, offDaySelected, offDayQuery]);
+
+  const selectedOffDayEmployees = useMemo(
+    () => Array.from(offDaySelected).map((id) => roster.find((emp) => emp._id === id)).filter(Boolean),
+    [offDaySelected, roster]
+  );
+
+  const addOffDayEmployee = (employeeId) => {
+    setOffDaySelected((prev) => new Set(prev).add(employeeId));
+    setOffDayQuery('');
+  };
 
   const saveOffDay = async () => {
     setOffDayBanner('');
@@ -186,11 +201,12 @@ export default function Attendance() {
       title="Attendance"
       subtitle="Mark daily attendance for your team."
       actions={
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="attendance-actions">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            className="attendance-date-input"
             style={{
               background: 'var(--bg-inset)',
               border: '1px solid var(--border-hairline)',
@@ -200,13 +216,13 @@ export default function Attendance() {
               color: 'var(--text-primary)',
             }}
           />
-          <button onClick={markAllPresent} style={secondaryBtn}>
+          <button onClick={markAllPresent} style={secondaryBtn} className="attendance-action-btn">
             Mark all present
           </button>
-          <button onClick={() => setOffDayOpen((v) => !v)} style={secondaryBtn}>
+          <button onClick={() => setOffDayOpen((v) => !v)} style={secondaryBtn} className="attendance-action-btn">
             {offDayOpen ? 'Close off day panel' : 'Set off day'}
           </button>
-          <button onClick={saveAll} disabled={saving} style={primaryBtn}>
+          <button onClick={saveAll} disabled={saving} style={primaryBtn} className="attendance-action-btn">
             {saving ? 'Saving…' : 'Save attendance'}
           </button>
         </div>
@@ -230,6 +246,7 @@ export default function Attendance() {
 
       {offDayOpen && (
         <div
+          className="off-day-panel"
           style={{
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-hairline-soft)',
@@ -247,7 +264,7 @@ export default function Attendance() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+          <div className="off-day-fields" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
             <label style={offDayLabelStyle}>
               Start date
               <input
@@ -278,53 +295,89 @@ export default function Attendance() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Employees
+                Employees {selectedOffDayEmployees.length > 0 ? `(${selectedOffDayEmployees.length} selected)` : ''}
               </span>
-              <button type="button" onClick={toggleOffDayAll} style={{ ...secondaryBtn, padding: '5px 10px', fontSize: 12 }}>
-                {filteredRoster.length > 0 && filteredRoster.every((emp) => offDaySelected.has(emp._id)) ? 'Clear all' : 'Select all'}
-              </button>
-            </div>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                gap: 8,
-                maxHeight: 220,
-                overflowY: 'auto',
-                background: 'var(--bg-inset)',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 8,
-                padding: 10,
-              }}
-            >
-              {roster.length === 0 && (
-                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No team members found.</span>
-              )}
-              {roster.length > 0 && filteredRoster.length === 0 && (
-                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No employees match your search.</span>
-              )}
-              {filteredRoster.map((emp) => (
-                <label
-                  key={emp._id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    fontSize: 13,
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
-                  }}
+              {selectedOffDayEmployees.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOffDaySelected(new Set())}
+                  style={{ ...secondaryBtn, padding: '5px 10px', fontSize: 12 }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={offDaySelected.has(emp._id)}
-                    onChange={() => toggleOffDayEmployee(emp._id)}
-                  />
-                  {emp.name}
-                </label>
-              ))}
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {selectedOffDayEmployees.length > 0 && (
+              <div className="off-day-chips">
+                {selectedOffDayEmployees.map((emp) => (
+                  <span key={emp._id} className="off-day-chip">
+                    {emp.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleOffDayEmployee(emp._id)}
+                      aria-label={`Remove ${emp.name}`}
+                      className="off-day-chip-remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="off-day-search">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="off-day-search-icon"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={offDayQuery}
+                onChange={(e) => {
+                  setOffDayQuery(e.target.value);
+                  setOffDaySuggestOpen(true);
+                }}
+                onFocus={() => setOffDaySuggestOpen(true)}
+                onBlur={() => setTimeout(() => setOffDaySuggestOpen(false), 120)}
+                placeholder={roster.length === 0 ? 'No team members found' : 'Search employees by name, department, or email…'}
+                disabled={roster.length === 0}
+                style={{ ...offDayInputStyle, width: '100%', paddingLeft: 32 }}
+              />
+
+              {offDaySuggestOpen && (
+                <div className="off-day-suggestions">
+                  {offDaySuggestions.length === 0 && (
+                    <div className="off-day-suggestion-empty">
+                      {offDayQuery.trim()
+                        ? `No employees match "${offDayQuery.trim()}".`
+                        : 'All employees have been added.'}
+                    </div>
+                  )}
+                  {offDaySuggestions.map((emp) => (
+                    <button
+                      type="button"
+                      key={emp._id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => addOffDayEmployee(emp._id)}
+                      className="off-day-suggestion-item"
+                    >
+                      <span className="off-day-suggestion-name">{emp.name}</span>
+                      <span className="off-day-suggestion-meta">{emp.department || emp.email || '—'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -332,8 +385,8 @@ export default function Attendance() {
             <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12 }}>{offDayBanner}</div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button onClick={saveOffDay} disabled={offDaySaving} style={primaryBtn}>
+          <div className="off-day-footer" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={saveOffDay} disabled={offDaySaving} style={primaryBtn} className="attendance-action-btn">
               {offDaySaving ? 'Saving…' : 'Set as off day'}
             </button>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -347,7 +400,7 @@ export default function Attendance() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div className="attendance-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 20 }}>
         {Object.entries(ATTENDANCE_STATUS_LABELS).map(([key, label]) => (
           <div
             key={key}
@@ -440,8 +493,8 @@ export default function Attendance() {
             </div>
           )}
         </div>
-        <div style={{ overflowX: 'auto', maxHeight: 560, overflowY: 'auto', paddingRight: 6 }}>
-          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+        <div className="attendance-table-scroll" style={{ overflowX: 'auto', maxHeight: 560, overflowY: 'auto', paddingRight: 6 }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg-panel)' }}>
               <tr>
                 {['Employee', 'Department', 'Status'].map((h) => (
@@ -507,6 +560,157 @@ export default function Attendance() {
           </table>
         </div>
       </div>
+
+      <style>{`
+        .attendance-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .off-day-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 10px;
+        }
+        .off-day-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-hairline);
+          border-radius: 999px;
+          padding: 5px 6px 5px 12px;
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--text-primary);
+          max-width: 100%;
+        }
+        .off-day-chip-remove {
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          font-size: 15px;
+          line-height: 1;
+          cursor: pointer;
+          padding: 2px 4px;
+          border-radius: 999px;
+        }
+        .off-day-chip-remove:hover {
+          color: var(--text-primary);
+          background: var(--border-hairline);
+        }
+        .off-day-search {
+          position: relative;
+          max-width: 420px;
+          width: 100%;
+        }
+        .off-day-search-icon {
+          position: absolute;
+          left: 11px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-muted);
+          pointer-events: none;
+        }
+        .off-day-suggestions {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: calc(100% + 6px);
+          z-index: 6;
+          background: var(--bg-panel);
+          border: 1px solid var(--border-hairline);
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+          max-height: 240px;
+          overflow-y: auto;
+          padding: 4px;
+        }
+        .off-day-suggestion-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          padding: 9px 10px;
+          font-size: 13px;
+          color: var(--text-primary);
+          text-align: left;
+          cursor: pointer;
+        }
+        .off-day-suggestion-item:hover,
+        .off-day-suggestion-item:focus {
+          background: var(--bg-inset);
+          outline: none;
+        }
+        .off-day-suggestion-name {
+          font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .off-day-suggestion-meta {
+          font-size: 11.5px;
+          color: var(--text-muted);
+          flex-shrink: 0;
+          max-width: 45%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .off-day-suggestion-empty {
+          padding: 10px 12px;
+          font-size: 12.5px;
+          color: var(--text-muted);
+        }
+
+        @media (max-width: 900px) {
+          .attendance-summary-grid {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
+          }
+          .off-day-fields {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .attendance-actions {
+            width: 100%;
+          }
+          .attendance-actions .attendance-date-input,
+          .attendance-actions .attendance-action-btn {
+            flex: 1 1 auto;
+            width: 100%;
+          }
+          .off-day-panel {
+            padding: 14px !important;
+          }
+          .off-day-footer {
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .off-day-footer .attendance-action-btn {
+            width: 100%;
+          }
+          .off-day-search {
+            max-width: 100%;
+          }
+          .attendance-summary-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .attendance-table-scroll {
+            max-height: 480px;
+          }
+        }
+      `}</style>
     </PageShell>
   );
 }
