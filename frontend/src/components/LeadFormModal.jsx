@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import EmployeeSearchSelect from './EmployeeSearchSelect';
 import { fieldWrap, labelStyle, inputStyle, primaryBtn, secondaryBtn, errorBanner } from './formStyles';
 import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS } from '../erp/badges';
 
@@ -118,14 +119,12 @@ export default function LeadFormModal({ lead, teamMembers, onClose, onSaved, onS
           </div>
           <div style={fieldWrap}>
             <label style={labelStyle}>Assigned to</label>
-            <select style={inputStyle} value={form.assignedTo} onChange={update('assignedTo')}>
-              <option value="">Unassigned</option>
-              {teamMembers.map((m) => (
-                <option key={m._id} value={m._id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+            <EmployeeSearchSelect
+              employees={teamMembers}
+              value={form.assignedTo}
+              onChange={(id) => setForm((f) => ({ ...f, assignedTo: id }))}
+              placeholder="Search employees or managers…"
+            />
           </div>
         </div>
 
