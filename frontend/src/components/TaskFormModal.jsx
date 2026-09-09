@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import Modal from './Modal';
 import EmployeeSearchSelect from './EmployeeSearchSelect';
+import SearchSelect from './SearchSelect';
 import { fieldWrap, labelStyle, inputStyle, primaryBtn, secondaryBtn, errorBanner } from './formStyles';
 import { STATUS_LABELS } from '../utils/deadline';
 
@@ -124,14 +125,14 @@ export default function TaskFormModal({ task, employees, projects, onClose, onSa
         <div className="tf-grid">
           <div className="tf-field-full" style={gridFieldWrap}>
             <label style={labelStyle}>Project</label>
-            <select style={inputStyle} value={form.project} onChange={update('project')}>
-              <option value="">Select a project…</option>
-              {projects.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              items={projects}
+              value={form.project}
+              onChange={(id) => setForm((f) => ({ ...f, project: id, milestone: '' }))}
+              getLabel={(p) => p.name}
+              placeholder="Search projects…"
+              emptyOptionLabel="No projects match"
+            />
           </div>
 
           <div style={gridFieldWrap}>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import SearchSelect from './SearchSelect';
 import { fieldWrap, labelStyle, inputStyle, primaryBtn, secondaryBtn, errorBanner } from './formStyles';
 import { INVOICE_STATUS_LABELS } from '../erp/badges';
 import { exactMoney } from '../utils/currency';
@@ -104,25 +105,26 @@ export default function InvoiceFormModal({ invoice, clients, projects, onClose, 
         <div className="form-grid-2">
           <div style={fieldWrap}>
             <label style={labelStyle}>Client</label>
-            <select style={inputStyle} value={form.client} onChange={update('client')}>
-              <option value="">Select a client…</option>
-              {clients.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name} {c.company ? `(${c.company})` : ''}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              items={clients}
+              value={form.client}
+              onChange={(id) => setForm((f) => ({ ...f, client: id }))}
+              getLabel={(c) => c.name}
+              getSubLabel={(c) => c.company}
+              placeholder="Search clients…"
+              emptyOptionLabel="No clients match"
+            />
           </div>
           <div style={fieldWrap}>
             <label style={labelStyle}>Project (optional)</label>
-            <select style={inputStyle} value={form.project} onChange={update('project')}>
-              <option value="">No linked project</option>
-              {projects.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <SearchSelect
+              items={projects}
+              value={form.project}
+              onChange={(id) => setForm((f) => ({ ...f, project: id }))}
+              getLabel={(p) => p.name}
+              placeholder="Search projects…"
+              emptyOptionLabel="No projects match"
+            />
           </div>
         </div>
 
