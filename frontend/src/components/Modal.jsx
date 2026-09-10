@@ -126,14 +126,14 @@ export default function Modal({ title, onClose, children, width = 480 }) {
 
         @media screen and (max-width: 640px) {
           .app-modal-overlay {
-            padding: 0 !important;
-            align-items: flex-end !important;
+            padding: 16px !important;
+            align-items: center !important;
           }
           .app-modal-box {
             max-width: 100% !important;
             width: 100% !important;
-            max-height: 92dvh !important;
-            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+            max-height: 88dvh !important;
+            border-radius: var(--radius-lg) !important;
           }
           .app-modal-header {
             padding: 14px 16px !important;

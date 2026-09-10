@@ -1,8 +1,20 @@
 const express = require('express');
 const Payroll = require('../models/Payroll');
 const User = require('../models/User');
+const Attendance = require('../models/Attendance');
 const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
+
+// Every this-many "late" days in a month costs the employee this fraction
+// of their base salary (e.g. 4 late days => 1% deducted).
+const LATE_DAYS_PER_PENALTY = 4;
+const LATE_PENALTY_RATE = 0.01;
+
+// How many whole penalty units a given number of late days earns, e.g.
+// 4-7 late days => 1 unit, 8-11 => 2 units, etc.
+function lateDeductionUnits(lateCount) {
+  return Math.floor(lateCount / LATE_DAYS_PER_PENALTY);
+}
 
 router.use(protect);
 
@@ -40,18 +52,44 @@ router.post('/generate', async (req, res) => {
     });
     const existing = await Payroll.find({ month }).select('employee');
     const existingIds = new Set(existing.map((e) => String(e.employee)));
-    const toCreate = employees
-      .filter((emp) => !existingIds.has(String(emp._id)))
-      .map((emp) => ({
+    const employeesToPay = employees.filter((emp) => !existingIds.has(String(emp._id)));
+
+    // Count "late" attendance days this month per employee, so we can apply
+    // the late-arrival salary deduction (every 4 late days = 1% of base pay).
+    const [y, m] = month.split('-').map(Number);
+    const monthStart = new Date(y, m - 1, 1);
+    const monthEnd = new Date(y, m, 1);
+    const lateCounts = await Attendance.aggregate([
+      {
+        $match: {
+          employee: { $in: employeesToPay.map((emp) => emp._id) },
+          status: 'late',
+          date: { $gte: monthStart, $lt: monthEnd },
+        },
+      },
+      { $group: { _id: '$employee', count: { $sum: 1 } } },
+    ]);
+    const lateCountByEmployee = new Map(lateCounts.map((row) => [String(row._id), row.count]));
+
+    const toCreate = employeesToPay.map((emp) => {
+      const lateCount = lateCountByEmployee.get(String(emp._id)) || 0;
+      const units = lateDeductionUnits(lateCount);
+      const deductions = Math.round(emp.monthlySalary * LATE_PENALTY_RATE * units * 100) / 100;
+      const notes = units > 0
+        ? `Late deduction: ${lateCount} late day(s) this month (-${units * LATE_PENALTY_RATE * 100}% salary).`
+        : '';
+      return {
         employee: emp._id,
         month,
         baseSalary: emp.monthlySalary,
         allowances: 0,
         bonus: 0,
-        deductions: 0,
+        deductions,
         status: 'pending',
+        notes,
         generatedBy: req.user._id,
-      }));
+      };
+    });
     const created = toCreate.length ? await Payroll.insertMany(toCreate) : [];
     res.status(201).json({
       created: created.length,

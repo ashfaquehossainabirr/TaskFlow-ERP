@@ -11,6 +11,7 @@ const ATTENDANCE_STATUS_SHORT = {
   'half-day': 'HD',
   leave: 'Lv',
   holiday: 'Hol',
+  late: 'Lt',
 };
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const STATUS_VALUES = ['present', 'absent', 'half-day', 'leave', 'holiday'];
+const STATUS_VALUES = ['present', 'absent', 'half-day', 'leave', 'holiday', 'late'];
 
 const attendanceSchema = new mongoose.Schema(
   {

@@ -71,6 +71,7 @@ export const ATTENDANCE_STATUS_LABELS = {
   'half-day': 'Half Day',
   leave: 'Leave',
   holiday: 'Holiday',
+  late: 'Late',
 };
 export const ATTENDANCE_STATUS_COLORS = {
   present: 'var(--status-delivered)',
@@ -78,6 +79,7 @@ export const ATTENDANCE_STATUS_COLORS = {
   'half-day': 'var(--status-hold)',
   leave: 'var(--accent-cyan)',
   holiday: 'var(--text-muted)',
+  late: 'var(--status-progress)',
 };
 
 export const PAYROLL_STATUS_COLORS = {
