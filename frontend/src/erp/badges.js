@@ -76,10 +76,10 @@ export const ATTENDANCE_STATUS_LABELS = {
 export const ATTENDANCE_STATUS_COLORS = {
   present: 'var(--status-delivered)',
   absent: 'var(--status-cancelled)',
-  'half-day': 'var(--status-hold)',
+  'half-day': 'var(--status-progress)',
   leave: 'var(--accent-cyan)',
   holiday: 'var(--text-muted)',
-  late: 'var(--status-progress)',
+  late: 'var(--status-hold)',
 };
 
 export const PAYROLL_STATUS_COLORS = {
