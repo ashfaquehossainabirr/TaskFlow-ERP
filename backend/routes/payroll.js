@@ -47,15 +47,26 @@ router.get('/', async (req, res) => {
 
 router.use(authorize('admin'));
 
-// Generate (or refresh) draft payroll for every active employee with a
+// Generate (or regenerate) draft payroll for every active employee with a
 // monthly salary set, for the given month. Skips employees who already
-// have a record for that month.
+// have a record for that month — unless `regenerate` is set, in which case
+// any existing *pending* records for the month are deleted first so they
+// get rebuilt from the latest attendance data. Records already marked
+// `paid` are always left untouched, since they represent money that has
+// actually gone out — regenerating never overwrites a paid payslip.
 router.post('/generate', async (req, res) => {
   try {
-    const { month } = req.body; // 'YYYY-MM'
+    const { month, regenerate } = req.body; // 'YYYY-MM'
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ message: 'A valid month (YYYY-MM) is required' });
     }
+
+    let removed = 0;
+    if (regenerate) {
+      const deleteResult = await Payroll.deleteMany({ month, status: { $ne: 'paid' } });
+      removed = deleteResult.deletedCount || 0;
+    }
+
     const employees = await User.find({
       isActive: true,
       monthlySalary: { $ne: null, $gt: 0 },
@@ -162,6 +173,7 @@ router.post('/generate', async (req, res) => {
     res.status(201).json({
       created: created.length,
       skipped: employees.length - created.length,
+      removed,
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to generate payroll', error: err.message });

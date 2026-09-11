@@ -48,20 +48,33 @@ export default function Payroll() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (regenerate = false) => {
     setGenerating(true);
     setBanner('');
     try {
-      const res = await api.post('/payroll/generate', { month });
-      setBanner(
-        `${res.data.created} payslip(s) generated${res.data.skipped ? `, ${res.data.skipped} already existed or had no salary set` : ''}.`
-      );
+      const res = await api.post('/payroll/generate', { month, regenerate });
+      const parts = [`${res.data.created} payslip(s) generated`];
+      if (regenerate && res.data.removed) {
+        parts.push(`${res.data.removed} existing pending payslip(s) replaced with fresh attendance data`);
+      }
+      if (res.data.skipped) {
+        parts.push(`${res.data.skipped} ${regenerate ? 'already marked paid, left unchanged' : 'already had a payslip this month'}`);
+      }
+      setBanner(`${parts.join(', ')}.`);
       load();
     } catch (err) {
       setBanner(err.response?.data?.message || 'Failed to generate payroll');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleRegenerate = () => {
+    const confirmed = window.confirm(
+      `Regenerate payroll for ${month}? Every pending payslip for this month will be deleted and rebuilt from the latest attendance data. Any manual edits or notes on those payslips will be lost. Payslips already marked "paid" are never touched.`
+    );
+    if (!confirmed) return;
+    handleGenerate(true);
   };
 
   const handleSubmit = async (form, id) => {
@@ -95,7 +108,7 @@ export default function Payroll() {
       title="Payroll"
       subtitle="Generate and manage monthly payslips from employee salaries."
       actions={
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="month"
             value={month}
@@ -110,7 +123,7 @@ export default function Payroll() {
             }}
           />
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate(false)}
             disabled={generating}
             style={{
               background: 'var(--accent-cyan)',
@@ -124,6 +137,23 @@ export default function Payroll() {
             }}
           >
             {generating ? 'Generating…' : 'Generate payroll'}
+          </button>
+          <button
+            onClick={handleRegenerate}
+            disabled={generating}
+            title="Delete pending payslips for this month and rebuild them from the latest attendance data. Paid payslips are never touched."
+            style={{
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-hairline)',
+              borderRadius: 8,
+              padding: '10px 18px',
+              fontSize: 13.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {generating ? 'Working…' : 'Regenerate payroll'}
           </button>
         </div>
       }
@@ -185,7 +215,9 @@ export default function Payroll() {
         Generating pulls the monthly salary set on each active employee's profile (Team &amp; Access) along with their
         attendance for the month. Present days (including late arrivals) are counted for reference; absent days are
         deducted at the employee's daily rate (monthly salary ÷ days in the month); half-days deduct half of that daily
-        rate; every 4 late days deducts an extra 1% of base salary; leave and holidays are never deducted.
+        rate; every 4 late days deducts an extra 1% of base salary; leave and holidays are never deducted. If attendance
+        gets corrected after payroll was already generated, use "Regenerate payroll" to rebuild pending payslips for the
+        month from the latest attendance data — payslips already marked paid are always left untouched.
       </p>
 
       <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
