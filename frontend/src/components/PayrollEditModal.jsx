@@ -91,13 +91,22 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
                 {record.attendance.lateDays} late day(s) = {exactBDT(record.attendance.lateDeduction)}
               </div>
             )}
+            {record.attendance.unsetDays > 0 && (
+              <div>
+                {record.attendance.unsetDays} day(s) not recorded (N/A) × {exactBDT(record.attendance.dailyRate)}/day ={' '}
+                {exactBDT(record.attendance.unsetDeduction)}
+              </div>
+            )}
             {(record.attendance.leaveDays > 0 || record.attendance.holidayDays > 0) && (
               <div>
                 {record.attendance.leaveDays || 0} leave day(s), {record.attendance.holidayDays || 0} holiday(s) — no
                 deduction
               </div>
             )}
-            {(record.attendance.absentDays > 0 || record.attendance.halfDays > 0 || record.attendance.lateDays > 0) && (
+            {(record.attendance.absentDays > 0 ||
+              record.attendance.halfDays > 0 ||
+              record.attendance.lateDays > 0 ||
+              record.attendance.unsetDays > 0) && (
               <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
                 Included in the Deductions total below — edit that field directly to adjust it.
               </div>

@@ -82,6 +82,12 @@ export const ATTENDANCE_STATUS_COLORS = {
   late: 'var(--status-hold)',
 };
 
+// A day with no attendance record at all (admin hasn't set it yet) is
+// distinct from an explicit "Absent" mark — shown as "N/A" in a deep
+// gray so it reads as "not yet recorded" rather than a penalized day.
+export const ATTENDANCE_NA_LABEL = 'N/A';
+export const ATTENDANCE_NA_COLOR = 'var(--status-na)';
+
 export const PAYROLL_STATUS_COLORS = {
   pending: 'var(--status-hold)',
   paid: 'var(--status-delivered)',

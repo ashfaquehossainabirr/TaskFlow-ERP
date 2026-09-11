@@ -3,7 +3,7 @@ import PageShell from '../components/PageShell';
 import Spinner from '../components/Spinner';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS, pillStyle } from '../erp/badges';
+import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_COLORS, ATTENDANCE_NA_LABEL, ATTENDANCE_NA_COLOR, pillStyle } from '../erp/badges';
 
 const ATTENDANCE_STATUS_SHORT = {
   present: 'P',
@@ -201,6 +201,10 @@ export default function MyAttendance() {
                 {label}
               </span>
             ))}
+            <span className="ma-legend-item">
+              <span className="ma-legend-dot" style={{ background: ATTENDANCE_NA_COLOR }} />
+              {ATTENDANCE_NA_LABEL} (not set)
+            </span>
           </div>
         </div>
 
@@ -232,15 +236,15 @@ export default function MyAttendance() {
                       <span
                         className="ma-day-status"
                         style={{
-                          color: cell.record ? ATTENDANCE_STATUS_COLORS[cell.record.status] : ATTENDANCE_STATUS_COLORS.absent,
+                          color: cell.record ? ATTENDANCE_STATUS_COLORS[cell.record.status] : ATTENDANCE_NA_COLOR,
                         }}
-                        title={cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_STATUS_LABELS.absent}
+                        title={cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_NA_LABEL}
                       >
                         <span className="ma-day-status-full">
-                          {cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_STATUS_LABELS.absent}
+                          {cell.record ? ATTENDANCE_STATUS_LABELS[cell.record.status] : ATTENDANCE_NA_LABEL}
                         </span>
                         <span className="ma-day-status-short">
-                          {cell.record ? ATTENDANCE_STATUS_SHORT[cell.record.status] : ATTENDANCE_STATUS_SHORT.absent}
+                          {cell.record ? ATTENDANCE_STATUS_SHORT[cell.record.status] : ATTENDANCE_NA_LABEL}
                         </span>
                       </span>
                     )}

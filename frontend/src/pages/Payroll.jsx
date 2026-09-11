@@ -297,12 +297,16 @@ export default function Payroll() {
                   </td>
                   <td style={tdStyle} className="mono">
                     {exactBDT(r.deductions)}
-                    {(r.attendance?.absentDays > 0 || r.attendance?.lateDays > 0 || r.attendance?.halfDays > 0) && (
+                    {(r.attendance?.absentDays > 0 ||
+                      r.attendance?.lateDays > 0 ||
+                      r.attendance?.halfDays > 0 ||
+                      r.attendance?.unsetDays > 0) && (
                       <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans, inherit)', marginTop: 2 }}>
                         {[
                           r.attendance.absentDays > 0 && `${r.attendance.absentDays}d absent`,
                           r.attendance.halfDays > 0 && `${r.attendance.halfDays}d half-day`,
                           r.attendance.lateDays > 0 && `${r.attendance.lateDays}d late`,
+                          r.attendance.unsetDays > 0 && `${r.attendance.unsetDays}d N/A`,
                         ]
                           .filter(Boolean)
                           .join(' · ')}

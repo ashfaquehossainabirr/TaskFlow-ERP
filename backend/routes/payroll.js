@@ -80,7 +80,10 @@ router.post('/generate', async (req, res) => {
     // penalty below); 'half-day' is half attendance; 'leave' and 'holiday'
     // are excused and never deduct anything; 'absent' is a full day's pay
     // cut at the employee's daily rate for this month (monthlySalary / days
-    // in month).
+    // in month). Any calendar day in the month with no attendance record at
+    // all (admin never marked it — shown as "N/A" on the calendar) is
+    // treated the same as an absence for pay purposes: the employee is only
+    // paid for days that were actually recorded.
     const [y, m] = month.split('-').map(Number);
     const monthStart = new Date(y, m - 1, 1);
     const monthEnd = new Date(y, m, 1);
@@ -113,13 +116,22 @@ router.post('/generate', async (req, res) => {
       // late arrivals, both of which are a full day worked.
       const totalPresentDays = presentCount + lateCount;
 
+      // Any day in the month that isn't accounted for by any attendance
+      // status at all is unset ("N/A") — never marked by an admin/manager.
+      const recordedDays = presentCount + lateCount + halfDayCount + absentCount + leaveCount + holidayCount;
+      const unsetCount = Math.max(0, monthDays - recordedDays);
+
       const dailyRate = Math.round((emp.monthlySalary / monthDays) * 100) / 100;
 
       const units = lateDeductionUnits(lateCount);
       const lateDeduction = Math.round(emp.monthlySalary * LATE_PENALTY_RATE * units * 100) / 100;
       const halfDayDeduction = Math.round(dailyRate * HALF_DAY_DEDUCTION_FRACTION * halfDayCount * 100) / 100;
       const absentDeduction = Math.round(dailyRate * absentCount * 100) / 100;
-      const deductions = Math.round((lateDeduction + halfDayDeduction + absentDeduction) * 100) / 100;
+      // Unset days are unpaid, just like an absence — the employee is only
+      // paid for the days that actually have attendance recorded.
+      const unsetDeduction = Math.round(dailyRate * unsetCount * 100) / 100;
+      const deductions =
+        Math.round((lateDeduction + halfDayDeduction + absentDeduction + unsetDeduction) * 100) / 100;
 
       const noteLines = [];
       noteLines.push(
@@ -137,6 +149,13 @@ router.post('/generate', async (req, res) => {
       }
       if (absentCount > 0) {
         noteLines.push(`Absent deduction: ${absentCount} absent day(s) x ${bdt(dailyRate)}/day = ${bdt(absentDeduction)}.`);
+      }
+      if (unsetCount > 0) {
+        noteLines.push(
+          `Unset (N/A) deduction: ${unsetCount} day(s) with no attendance recorded x ${bdt(dailyRate)}/day = ${bdt(
+            unsetDeduction
+          )}.`
+        );
       }
       if (leaveCount > 0 || holidayCount > 0) {
         noteLines.push(
@@ -158,11 +177,13 @@ router.post('/generate', async (req, res) => {
           absentDays: absentCount,
           leaveDays: leaveCount,
           holidayDays: holidayCount,
+          unsetDays: unsetCount,
           totalDaysInMonth: monthDays,
           dailyRate,
           lateDeduction,
           halfDayDeduction,
           absentDeduction,
+          unsetDeduction,
         },
         status: 'pending',
         notes: noteLines.join(' '),
@@ -312,15 +333,32 @@ router.get('/:id/pdf', async (req, res) => {
       ]);
       y += 20;
     }
+    if (att.unsetDays > 0) {
+      drawTableRow(doc, tableX, y, deductionColumns, [
+        `Not recorded / N/A (${att.unsetDays} day${att.unsetDays === 1 ? '' : 's'} x ${bdt(att.dailyRate)}/day)`,
+        bdt(att.unsetDeduction),
+      ]);
+      y += 20;
+    }
     const otherDeductions = Math.max(
       0,
-      (record.deductions || 0) - (att.lateDeduction || 0) - (att.halfDayDeduction || 0) - (att.absentDeduction || 0)
+      (record.deductions || 0) -
+        (att.lateDeduction || 0) -
+        (att.halfDayDeduction || 0) -
+        (att.absentDeduction || 0) -
+        (att.unsetDeduction || 0)
     );
     if (otherDeductions > 0.004) {
       drawTableRow(doc, tableX, y, deductionColumns, ['Other deductions', bdt(otherDeductions)]);
       y += 20;
     }
-    if (!(att.lateDays > 0) && !(att.halfDays > 0) && !(att.absentDays > 0) && otherDeductions <= 0.004) {
+    if (
+      !(att.lateDays > 0) &&
+      !(att.halfDays > 0) &&
+      !(att.absentDays > 0) &&
+      !(att.unsetDays > 0) &&
+      otherDeductions <= 0.004
+    ) {
       doc.fillColor('#6b7280').font('Helvetica').fontSize(10).text('No deductions this period.', tableX, y);
       y += 20;
     }
@@ -333,7 +371,7 @@ router.get('/:id/pdf', async (req, res) => {
     doc.fillColor('#0e7c86').font('Helvetica-Bold').fontSize(16).text(bdt(record.netPay), tableX + 380, y - 2, { width: 115, align: 'right' });
     y += 30;
 
-    if (att.absentDays > 0 || att.lateDays > 0 || att.halfDays > 0) {
+    if (att.absentDays > 0 || att.lateDays > 0 || att.halfDays > 0 || att.unsetDays > 0) {
       doc
         .fillColor('#6b7280')
         .font('Helvetica')

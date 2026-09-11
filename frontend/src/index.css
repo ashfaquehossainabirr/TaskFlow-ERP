@@ -19,6 +19,7 @@
   --status-delivered: #3ecf8e;
   --status-cancelled: #ef6461;
   --status-hold: #f0a83f;
+  --status-na: #3a4552;
 
   --urgent-glow: #ff5d5d;
 
@@ -67,6 +68,7 @@
   --status-delivered: #1f9d63;
   --status-cancelled: #d6473f;
   --status-hold: #c9791c;
+  --status-na: #4b5563;
 
   --urgent-glow: #e2453c;
 
