@@ -59,7 +59,7 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
       <form onSubmit={handleSubmit}>
         {error && <div style={errorBanner}>{error}</div>}
 
-        {(record.attendance?.absentDays > 0 || record.attendance?.lateDays > 0) && (
+        {record.attendance?.totalDaysInMonth > 0 && (
           <div
             style={{
               background: 'var(--bg-inset)',
@@ -72,7 +72,7 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
             }}
           >
             <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' }}>
-              Attendance deduction (auto-calculated at generation)
+              Attendance ({record.attendance.presentDays || 0} present / {record.attendance.totalDaysInMonth} days)
             </div>
             {record.attendance.absentDays > 0 && (
               <div>
@@ -80,14 +80,28 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
                 {exactBDT(record.attendance.absentDeduction)}
               </div>
             )}
+            {record.attendance.halfDays > 0 && (
+              <div>
+                {record.attendance.halfDays} half-day(s) × {exactBDT(record.attendance.dailyRate * 0.5)}/day ={' '}
+                {exactBDT(record.attendance.halfDayDeduction)}
+              </div>
+            )}
             {record.attendance.lateDays > 0 && (
               <div>
                 {record.attendance.lateDays} late day(s) = {exactBDT(record.attendance.lateDeduction)}
               </div>
             )}
-            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-              Included in the Deductions total below — edit that field directly to adjust it.
-            </div>
+            {(record.attendance.leaveDays > 0 || record.attendance.holidayDays > 0) && (
+              <div>
+                {record.attendance.leaveDays || 0} leave day(s), {record.attendance.holidayDays || 0} holiday(s) — no
+                deduction
+              </div>
+            )}
+            {(record.attendance.absentDays > 0 || record.attendance.halfDays > 0 || record.attendance.lateDays > 0) && (
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                Included in the Deductions total below — edit that field directly to adjust it.
+              </div>
+            )}
           </div>
         )}
 

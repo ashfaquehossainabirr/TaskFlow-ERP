@@ -40,10 +40,16 @@ const payrollSchema = new mongoose.Schema(
     // generation time, for transparency on the payslip. `deductions`
     // above remains the single editable total used in netPay.
     attendance: {
+      presentDays: { type: Number, default: 0 },
       lateDays: { type: Number, default: 0 },
+      halfDays: { type: Number, default: 0 },
       absentDays: { type: Number, default: 0 },
+      leaveDays: { type: Number, default: 0 },
+      holidayDays: { type: Number, default: 0 },
+      totalDaysInMonth: { type: Number, default: 0 },
       dailyRate: { type: Number, default: 0 },
       lateDeduction: { type: Number, default: 0 },
+      halfDayDeduction: { type: Number, default: 0 },
       absentDeduction: { type: Number, default: 0 },
     },
     status: {

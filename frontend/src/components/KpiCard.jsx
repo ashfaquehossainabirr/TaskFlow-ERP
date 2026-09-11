@@ -174,6 +174,16 @@ export default function KpiCard({ kpi, isAdmin = false, onMark }) {
           flex-direction: column;
           gap: 14px;
           min-width: 0;
+          transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        }
+        .kc-card:hover {
+          transform: translateY(-2px);
+          border-color: var(--border-hairline);
+          background: var(--bg-panel-raised);
+          box-shadow: var(--shadow-card-hover);
+        }
+        [data-theme='light'] .kc-card:hover {
+          background: var(--bg-panel);
         }
         .kc-header {
           display: flex;
@@ -333,10 +343,10 @@ export default function KpiCard({ kpi, isAdmin = false, onMark }) {
         .kc-btn-primary {
           background: var(--accent-cyan);
           border-color: var(--accent-cyan);
-          color: var(--bg-page);
+          color: var(--text-on-accent);
         }
         .kc-btn-primary:hover:not(:disabled) {
-          color: var(--bg-page);
+          color: var(--text-on-accent);
           filter: brightness(1.08);
         }
         .kc-paid-note {

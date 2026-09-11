@@ -11,6 +11,9 @@ const router = express.Router();
 const LATE_DAYS_PER_PENALTY = 4;
 const LATE_PENALTY_RATE = 0.01;
 
+// A half-day is worked at half pay, so it costs half of one day's rate.
+const HALF_DAY_DEDUCTION_FRACTION = 0.5;
+
 // How many whole penalty units a given number of late days earns, e.g.
 // 4-7 late days => 1 unit, 8-11 => 2 units, etc.
 function lateDeductionUnits(lateCount) {
@@ -61,10 +64,12 @@ router.post('/generate', async (req, res) => {
     const existingIds = new Set(existing.map((e) => String(e.employee)));
     const employeesToPay = employees.filter((emp) => !existingIds.has(String(emp._id)));
 
-    // Count "late" and "absent" attendance days this month per employee.
-    // Late days apply the existing percentage penalty; absent days are
-    // deducted at the employee's actual daily rate for this month
-    // (monthlySalary / days in month) — e.g. 6 absent days = 6 days' pay cut.
+    // Count every attendance status this month per employee. 'present' and
+    // 'late' days are both full attendance (late just also carries its own
+    // penalty below); 'half-day' is half attendance; 'leave' and 'holiday'
+    // are excused and never deduct anything; 'absent' is a full day's pay
+    // cut at the employee's daily rate for this month (monthlySalary / days
+    // in month).
     const [y, m] = month.split('-').map(Number);
     const monthStart = new Date(y, m - 1, 1);
     const monthEnd = new Date(y, m, 1);
@@ -72,36 +77,60 @@ router.post('/generate', async (req, res) => {
       {
         $match: {
           employee: { $in: employeesToPay.map((emp) => emp._id) },
-          status: { $in: ['late', 'absent'] },
           date: { $gte: monthStart, $lt: monthEnd },
         },
       },
       { $group: { _id: { employee: '$employee', status: '$status' }, count: { $sum: 1 } } },
     ]);
-    const lateCountByEmployee = new Map();
-    const absentCountByEmployee = new Map();
+    const countsByEmployee = new Map(); // employeeId -> { present, late, 'half-day', absent, leave, holiday }
     attendanceCounts.forEach((row) => {
       const id = String(row._id.employee);
-      if (row._id.status === 'late') lateCountByEmployee.set(id, row.count);
-      if (row._id.status === 'absent') absentCountByEmployee.set(id, row.count);
+      if (!countsByEmployee.has(id)) countsByEmployee.set(id, {});
+      countsByEmployee.get(id)[row._id.status] = row.count;
     });
     const monthDays = daysInMonth(y, m);
 
     const toCreate = employeesToPay.map((emp) => {
-      const lateCount = lateCountByEmployee.get(String(emp._id)) || 0;
-      const absentCount = absentCountByEmployee.get(String(emp._id)) || 0;
+      const counts = countsByEmployee.get(String(emp._id)) || {};
+      const presentCount = counts.present || 0;
+      const lateCount = counts.late || 0;
+      const halfDayCount = counts['half-day'] || 0;
+      const absentCount = counts.absent || 0;
+      const leaveCount = counts.leave || 0;
+      const holidayCount = counts.holiday || 0;
+      // "Present" attendance for payroll purposes: full presence plus
+      // late arrivals, both of which are a full day worked.
+      const totalPresentDays = presentCount + lateCount;
+
+      const dailyRate = Math.round((emp.monthlySalary / monthDays) * 100) / 100;
+
       const units = lateDeductionUnits(lateCount);
       const lateDeduction = Math.round(emp.monthlySalary * LATE_PENALTY_RATE * units * 100) / 100;
-      const dailyRate = Math.round((emp.monthlySalary / monthDays) * 100) / 100;
+      const halfDayDeduction = Math.round(dailyRate * HALF_DAY_DEDUCTION_FRACTION * halfDayCount * 100) / 100;
       const absentDeduction = Math.round(dailyRate * absentCount * 100) / 100;
-      const deductions = Math.round((lateDeduction + absentDeduction) * 100) / 100;
+      const deductions = Math.round((lateDeduction + halfDayDeduction + absentDeduction) * 100) / 100;
 
       const noteLines = [];
+      noteLines.push(
+        `Present: ${totalPresentDays} day(s) this month (${presentCount} full, ${lateCount} late) out of ${monthDays}.`
+      );
       if (units > 0) {
         noteLines.push(`Late deduction: ${lateCount} late day(s) this month (-${units * LATE_PENALTY_RATE * 100}% salary).`);
       }
+      if (halfDayCount > 0) {
+        noteLines.push(
+          `Half-day deduction: ${halfDayCount} half-day(s) x ${bdt(dailyRate * HALF_DAY_DEDUCTION_FRACTION)}/day = ${bdt(
+            halfDayDeduction
+          )}.`
+        );
+      }
       if (absentCount > 0) {
         noteLines.push(`Absent deduction: ${absentCount} absent day(s) x ${bdt(dailyRate)}/day = ${bdt(absentDeduction)}.`);
+      }
+      if (leaveCount > 0 || holidayCount > 0) {
+        noteLines.push(
+          `No deduction for ${leaveCount} leave day(s) and ${holidayCount} holiday(s).`
+        );
       }
 
       return {
@@ -112,10 +141,16 @@ router.post('/generate', async (req, res) => {
         bonus: 0,
         deductions,
         attendance: {
+          presentDays: totalPresentDays,
           lateDays: lateCount,
+          halfDays: halfDayCount,
           absentDays: absentCount,
+          leaveDays: leaveCount,
+          holidayDays: holidayCount,
+          totalDaysInMonth: monthDays,
           dailyRate,
           lateDeduction,
+          halfDayDeduction,
           absentDeduction,
         },
         status: 'pending',
@@ -202,8 +237,19 @@ router.get('/:id/pdf', async (req, res) => {
     }
     labelValue(doc, 330, infoY, 'Status', record.status.toUpperCase(), { width: 100 });
     labelValue(doc, 430, infoY, 'Pay Period', monthLabel, { width: 115 });
+    const attForInfo = record.attendance || {};
+    if (attForInfo.totalDaysInMonth > 0) {
+      labelValue(
+        doc,
+        330,
+        infoY + 46,
+        'Present Days',
+        `${attForInfo.presentDays || 0} / ${attForInfo.totalDaysInMonth}`,
+        { width: 100 }
+      );
+    }
     if (record.paidOn) {
-      labelValue(doc, 330, infoY + 46, 'Paid On', new Date(record.paidOn).toLocaleDateString(), { width: 100 });
+      labelValue(doc, 430, infoY + 46, 'Paid On', new Date(record.paidOn).toLocaleDateString(), { width: 115 });
     }
 
     const tableX = 50;
@@ -240,6 +286,13 @@ router.get('/:id/pdf', async (req, res) => {
       ]);
       y += 20;
     }
+    if (att.halfDays > 0) {
+      drawTableRow(doc, tableX, y, deductionColumns, [
+        `Half-day (${att.halfDays} day${att.halfDays === 1 ? '' : 's'} x ${bdt(att.dailyRate * 0.5)}/day)`,
+        bdt(att.halfDayDeduction),
+      ]);
+      y += 20;
+    }
     if (att.absentDays > 0) {
       drawTableRow(doc, tableX, y, deductionColumns, [
         `Absence (${att.absentDays} day${att.absentDays === 1 ? '' : 's'} x ${bdt(att.dailyRate)}/day)`,
@@ -247,12 +300,15 @@ router.get('/:id/pdf', async (req, res) => {
       ]);
       y += 20;
     }
-    const otherDeductions = Math.max(0, (record.deductions || 0) - (att.lateDeduction || 0) - (att.absentDeduction || 0));
+    const otherDeductions = Math.max(
+      0,
+      (record.deductions || 0) - (att.lateDeduction || 0) - (att.halfDayDeduction || 0) - (att.absentDeduction || 0)
+    );
     if (otherDeductions > 0.004) {
       drawTableRow(doc, tableX, y, deductionColumns, ['Other deductions', bdt(otherDeductions)]);
       y += 20;
     }
-    if (!(att.lateDays > 0) && !(att.absentDays > 0) && otherDeductions <= 0.004) {
+    if (!(att.lateDays > 0) && !(att.halfDays > 0) && !(att.absentDays > 0) && otherDeductions <= 0.004) {
       doc.fillColor('#6b7280').font('Helvetica').fontSize(10).text('No deductions this period.', tableX, y);
       y += 20;
     }
@@ -265,7 +321,7 @@ router.get('/:id/pdf', async (req, res) => {
     doc.fillColor('#0e7c86').font('Helvetica-Bold').fontSize(16).text(bdt(record.netPay), tableX + 380, y - 2, { width: 115, align: 'right' });
     y += 30;
 
-    if (att.absentDays > 0 || att.lateDays > 0) {
+    if (att.absentDays > 0 || att.lateDays > 0 || att.halfDays > 0) {
       doc
         .fillColor('#6b7280')
         .font('Helvetica')

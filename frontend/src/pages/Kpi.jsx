@@ -265,7 +265,7 @@ export default function Kpi() {
         }
         .kpi-quarter-btn-active {
           background: var(--accent-cyan);
-          color: var(--bg-page);
+          color: var(--text-on-accent);
         }
         .kpi-totals-strip {
           display: grid;

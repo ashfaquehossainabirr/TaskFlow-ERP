@@ -122,6 +122,24 @@ export default function Overview() {
             grid-template-columns: 1fr;
           }
         }
+        .snapshot-card {
+          display: block;
+          background: var(--bg-panel);
+          border: 1px solid var(--border-hairline-soft);
+          border-radius: var(--radius-lg);
+          padding: 14px 16px;
+          text-decoration: none;
+          transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        }
+        .snapshot-card:hover {
+          transform: translateY(-2px);
+          border-color: var(--border-hairline);
+          background: var(--bg-panel-raised);
+          box-shadow: var(--shadow-card-hover);
+        }
+        [data-theme='light'] .snapshot-card:hover {
+          background: var(--bg-panel);
+        }
       `}</style>
 
       <div
@@ -195,17 +213,7 @@ export default function Overview() {
 
 function SnapshotCard({ label, value, to, isCount, accent }) {
   return (
-    <Link
-      to={to}
-      style={{
-        display: 'block',
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--border-hairline-soft)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '14px 16px',
-        textDecoration: 'none',
-      }}
-    >
+    <Link to={to} className="snapshot-card">
       <div
         style={{
           fontSize: 11,

@@ -26,7 +26,7 @@ function streamPdf(res, doc, filename) {
 // Brand header row shared by every document type.
 function drawBrandHeader(doc, docType, docSubtitle) {
   doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(18).text('TaskFlow ERP', 50, 50);
-  doc.fillColor(MUTED).font('Helvetica').fontSize(9).text('taskflow-erp.example.com', 50, 72);
+  doc.fillColor(MUTED).font('Helvetica').fontSize(9).text('Developed by Ashfaque Hossain Abir', 50, 72);
 
   doc.fillColor(INK).font('Helvetica-Bold').fontSize(20).text(docType, 0, 50, { align: 'right' });
   if (docSubtitle) {
