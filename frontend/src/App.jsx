@@ -17,6 +17,7 @@ import Invoices from './pages/Invoices';
 import Expenses from './pages/Expenses';
 import Attendance from './pages/Attendance';
 import MyAttendance from './pages/MyAttendance';
+import Kpi from './pages/Kpi';
 import Payroll from './pages/Payroll';
 import ProtectedRoute from './components/ProtectedRoute';
 export default function App() {
@@ -148,6 +149,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MyAttendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kpi"
+        element={
+          <ProtectedRoute>
+            <Kpi />
           </ProtectedRoute>
         }
       />

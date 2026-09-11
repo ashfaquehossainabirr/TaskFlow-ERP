@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 
 export default function PageShell({ title, subtitle, actions, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -15,6 +16,8 @@ export default function PageShell({ title, subtitle, actions, children }) {
           <span />
         </button>
         <span className="mobile-topbar-title">TaskFlow</span>
+        <div className="mobile-topbar-spacer" />
+        <NotificationBell />
       </div>
 
       <main className="page-main">
@@ -33,17 +36,19 @@ export default function PageShell({ title, subtitle, actions, children }) {
               </p>
             )}
           </div>
-          {actions && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                flexWrap: 'wrap',
-              }}
-            >
-              {actions}
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div className="notif-bell-desktop-slot">
+              <NotificationBell />
             </div>
-          )}
+            {actions}
+          </div>
         </div>
         {children}
       </main>
@@ -103,6 +108,9 @@ export default function PageShell({ title, subtitle, actions, children }) {
           font-weight: 700;
           font-size: 16px;
         }
+        .mobile-topbar-spacer {
+          flex: 1;
+        }
         @media (max-width: 900px) {
           .page-shell {
             flex-direction: column;
@@ -121,6 +129,9 @@ export default function PageShell({ title, subtitle, actions, children }) {
           .page-main {
             padding: 20px 16px 40px;
             max-width: 100%;
+          }
+          .notif-bell-desktop-slot {
+            display: none;
           }
         }
         @media (max-width: 480px) {

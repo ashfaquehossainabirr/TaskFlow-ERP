@@ -200,3 +200,16 @@ export function IconBanknote(props) {
     </Svg>
   );
 }
+
+export function IconTrophy(props) {
+  return (
+    <Svg {...props}>
+      <path d="M7 4h10v5.5a5 5 0 0 1-10 0z" />
+      <path d="M7 5.5H4.2a1 1 0 0 0-1 1.1c.2 2 1.5 3.6 3.8 4" />
+      <path d="M17 5.5h2.8a1 1 0 0 1 1 1.1c-.2 2-1.5 3.6-3.8 4" />
+      <path d="M12 14.5v3.2" />
+      <path d="M8.7 21h6.6" />
+      <path d="M9.7 17.7h4.6l.6 3.3H9.1z" />
+    </Svg>
+  );
+}

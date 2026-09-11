@@ -18,6 +18,8 @@ const expenseRoutes = require('./routes/expenses');
 const attendanceRoutes = require('./routes/attendance');
 const payrollRoutes = require('./routes/payroll');
 const dashboardRoutes = require('./routes/dashboard');
+const notificationRoutes = require('./routes/notifications');
+const kpiRoutes = require('./routes/kpi');
 const app = express();
 connectDB();
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((o) => o.trim());
@@ -48,6 +50,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/kpi', kpiRoutes);
 app.post('/api/cron/deadline-reminder', async (req, res) => {
   const providedSecret = req.headers['x-cron-secret'];
   if (!process.env.CRON_SECRET) {

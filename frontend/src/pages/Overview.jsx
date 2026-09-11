@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import StatsCards from '../components/StatsCards';
+import DeadlineNotificationBanner from '../components/DeadlineNotificationBanner';
 import TaskCompletionDonut from '../components/TaskCompletionDonut';
 import PendingTasksList from '../components/PendingTasksList';
 import TaskTable from '../components/TaskTable';
@@ -55,6 +56,8 @@ export default function Overview() {
         isManager ? "Here's how the team's work is tracking today." : "Here's what's on your plate today."
       }
     >
+      <DeadlineNotificationBanner onTaskClick={(task) => setDetailTaskId(task._id)} />
+
       <StatsCards
         stats={stats}
         loading={loading}

@@ -12,3 +12,6 @@ export function formatMoney(value) {
 export function exactMoney(value) {
   return `$${(Number(value) || 0).toLocaleString()}`;
 }
+export function exactBDT(value) {
+  return `৳${(Number(value) || 0).toLocaleString()}`;
+}

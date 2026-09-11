@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { getTeamMemberIds } = require('../utils/teamAccess');
+const { getClearedState, filterCleared, clearAll } = require('../utils/notificationClear');
 const router = express.Router();
 
 router.use(protect);
@@ -55,6 +56,72 @@ router.get('/roster', authorize('admin', 'manager'), async (req, res) => {
     res.json(employees);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch roster', error: err.message });
+  }
+});
+
+// Recent late / half-day / absent records for the notification bell.
+// Scoped the same way as GET '/': employees see their own, managers see
+// their team (+ self), admins see everyone.
+router.get('/alerts', async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 30);
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - (days - 1));
+
+    const filter = {
+      date: { $gte: since },
+      status: { $in: ['late', 'half-day', 'absent'] },
+    };
+
+    if (req.user.role === 'employee') {
+      filter.employee = req.user._id;
+    } else if (req.user.role === 'manager') {
+      const teamIds = await getTeamMemberIds(req.user._id);
+      teamIds.push(req.user._id);
+      filter.employee = { $in: teamIds };
+    }
+
+    const records = await Attendance.find(filter)
+      .populate('employee', 'name email department')
+      .sort({ date: -1, updatedAt: -1 })
+      .limit(50);
+
+    const clearedState = await getClearedState(req.user._id, 'attendance');
+    res.json(filterCleared(records, clearedState));
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch attendance alerts', error: err.message });
+  }
+});
+
+// Dismiss all attendance alerts currently visible to this user. Recorded in
+// the database (per-user) so it persists across devices/sessions, not just
+// this browser.
+router.post('/alerts/clear', async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 30);
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - (days - 1));
+
+    const filter = {
+      date: { $gte: since },
+      status: { $in: ['late', 'half-day', 'absent'] },
+    };
+
+    if (req.user.role === 'employee') {
+      filter.employee = req.user._id;
+    } else if (req.user.role === 'manager') {
+      const teamIds = await getTeamMemberIds(req.user._id);
+      teamIds.push(req.user._id);
+      filter.employee = { $in: teamIds };
+    }
+
+    const records = await Attendance.find(filter).select('_id updatedAt');
+    const result = await clearAll(req.user._id, 'attendance', records);
+    res.json({ message: 'Attendance alerts cleared', ...result });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to clear attendance alerts', error: err.message });
   }
 });
 

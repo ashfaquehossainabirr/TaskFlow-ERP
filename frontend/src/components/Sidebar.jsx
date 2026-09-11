@@ -25,6 +25,7 @@ import {
   IconWallet,
   IconClipboardCheck,
   IconBanknote,
+  IconTrophy,
 } from './icons/SidebarIcons';
 
 const COLLAPSE_KEY = 'tf-sidebar-collapsed';
@@ -72,6 +73,7 @@ export default function Sidebar({ isOpen, onClose }) {
         { to: '/deadlines', label: 'Deadline Watch', Icon: IconAlarm },
         { to: '/notes', label: 'My Notes', Icon: IconNotebook },
         { to: '/my-attendance', label: 'My Attendance', Icon: IconCalendarCheck },
+        { to: '/kpi', label: 'KPI & Bonus', Icon: IconTrophy },
       ],
     },
     ...(isManager
