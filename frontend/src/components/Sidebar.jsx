@@ -273,6 +273,7 @@ export default function Sidebar({ isOpen, onClose }) {
           flex-direction: column;
           padding: 20px 14px;
           height: 100vh;
+          height: 100dvh;
           position: sticky;
           top: 0;
           overflow: visible;
