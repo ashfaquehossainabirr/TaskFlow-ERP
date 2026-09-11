@@ -556,6 +556,7 @@ export default function Sidebar({ isOpen, onClose }) {
             top: 0;
             left: 0;
             width: var(--sidebar-w) !important;
+            height: 90vh;
             transform: translateX(-100%);
             transition: transform 0.25s ease, box-shadow 0.25s ease;
             z-index: 210;
