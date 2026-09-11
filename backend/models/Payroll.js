@@ -36,6 +36,16 @@ const payrollSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    // Snapshot of how attendance-based deductions were computed at
+    // generation time, for transparency on the payslip. `deductions`
+    // above remains the single editable total used in netPay.
+    attendance: {
+      lateDays: { type: Number, default: 0 },
+      absentDays: { type: Number, default: 0 },
+      dailyRate: { type: Number, default: 0 },
+      lateDeduction: { type: Number, default: 0 },
+      absentDeduction: { type: Number, default: 0 },
+    },
     status: {
       type: String,
       enum: STATUS_VALUES,

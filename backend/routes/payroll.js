@@ -3,6 +3,7 @@ const Payroll = require('../models/Payroll');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const { protect, authorize } = require('../middleware/auth');
+const { newDocument, streamPdf, drawBrandHeader, labelValue, drawTableHeader, drawTableRow, bdt } = require('../utils/pdf');
 const router = express.Router();
 
 // Every this-many "late" days in a month costs the employee this fraction
@@ -14,6 +15,12 @@ const LATE_PENALTY_RATE = 0.01;
 // 4-7 late days => 1 unit, 8-11 => 2 units, etc.
 function lateDeductionUnits(lateCount) {
   return Math.floor(lateCount / LATE_DAYS_PER_PENALTY);
+}
+
+// Actual number of calendar days in the given 'YYYY-MM' month, so the daily
+// rate is accurate whether it's a 28, 29, 30 or 31 day month.
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
 }
 
 router.use(protect);
@@ -54,30 +61,49 @@ router.post('/generate', async (req, res) => {
     const existingIds = new Set(existing.map((e) => String(e.employee)));
     const employeesToPay = employees.filter((emp) => !existingIds.has(String(emp._id)));
 
-    // Count "late" attendance days this month per employee, so we can apply
-    // the late-arrival salary deduction (every 4 late days = 1% of base pay).
+    // Count "late" and "absent" attendance days this month per employee.
+    // Late days apply the existing percentage penalty; absent days are
+    // deducted at the employee's actual daily rate for this month
+    // (monthlySalary / days in month) — e.g. 6 absent days = 6 days' pay cut.
     const [y, m] = month.split('-').map(Number);
     const monthStart = new Date(y, m - 1, 1);
     const monthEnd = new Date(y, m, 1);
-    const lateCounts = await Attendance.aggregate([
+    const attendanceCounts = await Attendance.aggregate([
       {
         $match: {
           employee: { $in: employeesToPay.map((emp) => emp._id) },
-          status: 'late',
+          status: { $in: ['late', 'absent'] },
           date: { $gte: monthStart, $lt: monthEnd },
         },
       },
-      { $group: { _id: '$employee', count: { $sum: 1 } } },
+      { $group: { _id: { employee: '$employee', status: '$status' }, count: { $sum: 1 } } },
     ]);
-    const lateCountByEmployee = new Map(lateCounts.map((row) => [String(row._id), row.count]));
+    const lateCountByEmployee = new Map();
+    const absentCountByEmployee = new Map();
+    attendanceCounts.forEach((row) => {
+      const id = String(row._id.employee);
+      if (row._id.status === 'late') lateCountByEmployee.set(id, row.count);
+      if (row._id.status === 'absent') absentCountByEmployee.set(id, row.count);
+    });
+    const monthDays = daysInMonth(y, m);
 
     const toCreate = employeesToPay.map((emp) => {
       const lateCount = lateCountByEmployee.get(String(emp._id)) || 0;
+      const absentCount = absentCountByEmployee.get(String(emp._id)) || 0;
       const units = lateDeductionUnits(lateCount);
-      const deductions = Math.round(emp.monthlySalary * LATE_PENALTY_RATE * units * 100) / 100;
-      const notes = units > 0
-        ? `Late deduction: ${lateCount} late day(s) this month (-${units * LATE_PENALTY_RATE * 100}% salary).`
-        : '';
+      const lateDeduction = Math.round(emp.monthlySalary * LATE_PENALTY_RATE * units * 100) / 100;
+      const dailyRate = Math.round((emp.monthlySalary / monthDays) * 100) / 100;
+      const absentDeduction = Math.round(dailyRate * absentCount * 100) / 100;
+      const deductions = Math.round((lateDeduction + absentDeduction) * 100) / 100;
+
+      const noteLines = [];
+      if (units > 0) {
+        noteLines.push(`Late deduction: ${lateCount} late day(s) this month (-${units * LATE_PENALTY_RATE * 100}% salary).`);
+      }
+      if (absentCount > 0) {
+        noteLines.push(`Absent deduction: ${absentCount} absent day(s) x ${bdt(dailyRate)}/day = ${bdt(absentDeduction)}.`);
+      }
+
       return {
         employee: emp._id,
         month,
@@ -85,8 +111,15 @@ router.post('/generate', async (req, res) => {
         allowances: 0,
         bonus: 0,
         deductions,
+        attendance: {
+          lateDays: lateCount,
+          absentDays: absentCount,
+          dailyRate,
+          lateDeduction,
+          absentDeduction,
+        },
         status: 'pending',
-        notes,
+        notes: noteLines.join(' '),
         generatedBy: req.user._id,
       };
     });
@@ -141,6 +174,123 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Payroll record deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to delete payroll record', error: err.message });
+  }
+});
+
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const record = await Payroll.findById(req.params.id).populate('employee', 'name email department designation');
+    if (!record) return res.status(404).json({ message: 'Payroll record not found' });
+
+    const [year, monthNum] = record.month.split('-').map(Number);
+    const monthLabel = new Date(year, monthNum - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    const doc = newDocument();
+    streamPdf(res, doc, `Payslip-${record.employee?.name || 'employee'}-${record.month}.pdf`);
+
+    drawBrandHeader(doc, 'PAYSLIP', monthLabel);
+
+    const infoY = 130;
+    labelValue(doc, 50, infoY, 'Employee', record.employee?.name || '—', { bold: true, width: 240 });
+    doc.fillColor('#6b7280').font('Helvetica').fontSize(9.5).text(record.employee?.email || '', 50, doc.y + 2);
+    if (record.employee?.designation || record.employee?.department) {
+      doc
+        .fillColor('#6b7280')
+        .font('Helvetica')
+        .fontSize(9.5)
+        .text([record.employee?.designation, record.employee?.department].filter(Boolean).join(' · '), 50, doc.y + 2);
+    }
+    labelValue(doc, 330, infoY, 'Status', record.status.toUpperCase(), { width: 100 });
+    labelValue(doc, 430, infoY, 'Pay Period', monthLabel, { width: 115 });
+    if (record.paidOn) {
+      labelValue(doc, 330, infoY + 46, 'Paid On', new Date(record.paidOn).toLocaleDateString(), { width: 100 });
+    }
+
+    const tableX = 50;
+    const columns = [
+      { key: 'label', label: 'Earnings', x: 0, width: 380 },
+      { key: 'amount', label: 'Amount', x: 380, width: 115, align: 'right' },
+    ];
+    let y = infoY + 100;
+    drawTableHeader(doc, tableX, y, columns);
+    y += 24;
+    drawTableRow(doc, tableX, y, columns, ['Base Salary', bdt(record.baseSalary)]);
+    y += 20;
+    if (record.allowances > 0) {
+      drawTableRow(doc, tableX, y, columns, ['Allowances', bdt(record.allowances)]);
+      y += 20;
+    }
+    if (record.bonus > 0) {
+      drawTableRow(doc, tableX, y, columns, ['Bonus', bdt(record.bonus)]);
+      y += 20;
+    }
+
+    y += 10;
+    const deductionColumns = [
+      { key: 'label', label: 'Deductions', x: 0, width: 380 },
+      { key: 'amount', label: 'Amount', x: 380, width: 115, align: 'right' },
+    ];
+    drawTableHeader(doc, tableX, y, deductionColumns);
+    y += 24;
+    const att = record.attendance || {};
+    if (att.lateDays > 0) {
+      drawTableRow(doc, tableX, y, deductionColumns, [
+        `Late arrival (${att.lateDays} day${att.lateDays === 1 ? '' : 's'})`,
+        bdt(att.lateDeduction),
+      ]);
+      y += 20;
+    }
+    if (att.absentDays > 0) {
+      drawTableRow(doc, tableX, y, deductionColumns, [
+        `Absence (${att.absentDays} day${att.absentDays === 1 ? '' : 's'} x ${bdt(att.dailyRate)}/day)`,
+        bdt(att.absentDeduction),
+      ]);
+      y += 20;
+    }
+    const otherDeductions = Math.max(0, (record.deductions || 0) - (att.lateDeduction || 0) - (att.absentDeduction || 0));
+    if (otherDeductions > 0.004) {
+      drawTableRow(doc, tableX, y, deductionColumns, ['Other deductions', bdt(otherDeductions)]);
+      y += 20;
+    }
+    if (!(att.lateDays > 0) && !(att.absentDays > 0) && otherDeductions <= 0.004) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(10).text('No deductions this period.', tableX, y);
+      y += 20;
+    }
+
+    y += 14;
+    doc.moveTo(tableX, y).lineTo(545, y).strokeColor('#e2e5ea').lineWidth(1).stroke();
+    y += 14;
+
+    doc.fillColor('#1a2028').font('Helvetica-Bold').fontSize(13).text('Net Pay', tableX, y);
+    doc.fillColor('#0e7c86').font('Helvetica-Bold').fontSize(16).text(bdt(record.netPay), tableX + 380, y - 2, { width: 115, align: 'right' });
+    y += 30;
+
+    if (att.absentDays > 0 || att.lateDays > 0) {
+      doc
+        .fillColor('#6b7280')
+        .font('Helvetica')
+        .fontSize(8.5)
+        .text(
+          `Daily rate for this period: ${bdt(att.dailyRate)}/day, based on a ${monthLabel} salary of ${bdt(record.baseSalary)}.`,
+          tableX,
+          y,
+          { width: 495 }
+        );
+      y = doc.y + 8;
+    }
+
+    if (record.notes) {
+      doc.fillColor('#6b7280').font('Helvetica-Bold').fontSize(8.5).text('NOTES', tableX, y);
+      doc.fillColor('#1a2028').font('Helvetica').fontSize(10).text(record.notes, tableX, y + 14, { width: 495 });
+    }
+
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to generate payslip PDF', error: err.message });
+    } else {
+      res.end();
+    }
   }
 });
 

@@ -5,6 +5,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
 import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
+import { downloadFile } from '../utils/download';
 import { exactMoney } from '../utils/currency';
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, pillStyle } from '../erp/badges';
 
@@ -19,6 +20,20 @@ export default function Invoices() {
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [pdfError, setPdfError] = useState('');
+
+  const handleDownloadPdf = async (inv) => {
+    setDownloadingId(inv._id);
+    setPdfError('');
+    try {
+      await downloadFile(`/invoices/${inv._id}/pdf`, `${inv.invoiceNumber}.pdf`);
+    } catch (err) {
+      setPdfError(err.response?.data?.message || 'Failed to download this invoice PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +125,22 @@ export default function Invoices() {
         </button>
       }
     >
+      {pdfError && (
+        <div
+          style={{
+            background: 'rgba(239, 100, 97, 0.1)',
+            border: '1px solid rgba(239, 100, 97, 0.35)',
+            color: 'var(--text-error)',
+            padding: '10px 12px',
+            borderRadius: 8,
+            fontSize: 13,
+            marginBottom: 16,
+          }}
+        >
+          {pdfError}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 22 }}>
         {summaryCards.map((c) => (
           <div
@@ -219,6 +250,13 @@ export default function Invoices() {
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => handleDownloadPdf(inv)}
+                        disabled={downloadingId === inv._id}
+                        style={iconBtnStyle}
+                      >
+                        {downloadingId === inv._id ? 'Preparing…' : 'PDF'}
+                      </button>
                       <button
                         onClick={() => {
                           setEditingInvoice(inv);

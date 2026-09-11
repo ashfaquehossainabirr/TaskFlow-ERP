@@ -12,7 +12,7 @@ import StatusTasksModal from '../components/StatusTasksModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { canManageTasks } from '../utils/roles';
-import { exactMoney } from '../utils/currency';
+import { exactMoney, exactBDT } from '../utils/currency';
 
 export default function Overview() {
   const { user } = useAuth();
@@ -89,7 +89,7 @@ export default function Overview() {
               <>
                 <SnapshotCard label="Outstanding invoices" value={exactMoney(snapshot.outstandingInvoices)} to="/invoices" />
                 <SnapshotCard label="Revenue this month" value={exactMoney(snapshot.revenueThisMonth)} to="/invoices" accent="var(--status-delivered)" />
-                <SnapshotCard label="Expenses this month" value={exactMoney(snapshot.expensesThisMonth)} to="/expenses" accent="var(--status-cancelled)" />
+                <SnapshotCard label="Expenses this month" value={exactBDT(snapshot.expensesThisMonth)} to="/expenses" accent="var(--status-cancelled)" />
               </>
             )}
           </div>

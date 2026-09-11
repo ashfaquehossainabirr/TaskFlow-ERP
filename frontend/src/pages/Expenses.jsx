@@ -5,7 +5,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
 import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
-import { exactMoney } from '../utils/currency';
+import { exactBDT } from '../utils/currency';
 import { EXPENSE_CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from '../erp/badges';
 
 export default function Expenses() {
@@ -94,13 +94,13 @@ export default function Expenses() {
         <div style={cardStyle}>
           <div style={cardLabelStyle}>This month</div>
           <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>
-            {exactMoney(stats?.thisMonthTotal ?? 0)}
+            {exactBDT(stats?.thisMonthTotal ?? 0)}
           </div>
         </div>
         <div style={cardStyle}>
           <div style={cardLabelStyle}>Filtered total</div>
           <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>
-            {exactMoney(total)}
+            {exactBDT(total)}
           </div>
         </div>
       </div>
@@ -185,7 +185,7 @@ export default function Expenses() {
                   <td style={tdStyle}>{PAYMENT_METHOD_LABELS[e.paymentMethod]}</td>
                   <td style={tdStyle}>{new Date(e.date).toLocaleDateString()}</td>
                   <td style={tdStyle} className="mono">
-                    {exactMoney(e.amount)}
+                    {exactBDT(e.amount)}
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 8 }}>

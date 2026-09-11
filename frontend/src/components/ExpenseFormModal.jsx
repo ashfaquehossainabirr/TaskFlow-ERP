@@ -81,7 +81,7 @@ export default function ExpenseFormModal({ expense, onClose, onSaved, onSubmit }
             </select>
           </div>
           <div style={fieldWrap}>
-            <label style={labelStyle}>Amount ($)</label>
+            <label style={labelStyle}>Amount (৳)</label>
             <input type="number" min="0" step="0.01" style={inputStyle} value={form.amount} onChange={update('amount')} />
           </div>
         </div>

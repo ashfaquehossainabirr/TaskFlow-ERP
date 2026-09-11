@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import { fieldWrap, labelStyle, inputStyle, primaryBtn, secondaryBtn, errorBanner } from './formStyles';
-import { exactMoney } from '../utils/currency';
+import { exactBDT } from '../utils/currency';
 
 export default function PayrollEditModal({ record, onClose, onSaved, onSubmit }) {
   const [form, setForm] = useState({
@@ -59,24 +59,56 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
       <form onSubmit={handleSubmit}>
         {error && <div style={errorBanner}>{error}</div>}
 
+        {(record.attendance?.absentDays > 0 || record.attendance?.lateDays > 0) && (
+          <div
+            style={{
+              background: 'var(--bg-inset)',
+              border: '1px solid var(--border-hairline)',
+              borderRadius: 8,
+              padding: '10px 14px',
+              marginBottom: 16,
+              fontSize: 12,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' }}>
+              Attendance deduction (auto-calculated at generation)
+            </div>
+            {record.attendance.absentDays > 0 && (
+              <div>
+                {record.attendance.absentDays} absent day(s) × {exactBDT(record.attendance.dailyRate)}/day ={' '}
+                {exactBDT(record.attendance.absentDeduction)}
+              </div>
+            )}
+            {record.attendance.lateDays > 0 && (
+              <div>
+                {record.attendance.lateDays} late day(s) = {exactBDT(record.attendance.lateDeduction)}
+              </div>
+            )}
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+              Included in the Deductions total below — edit that field directly to adjust it.
+            </div>
+          </div>
+        )}
+
         <div className="form-grid-2">
           <div style={fieldWrap}>
-            <label style={labelStyle}>Base salary ($)</label>
+            <label style={labelStyle}>Base salary (৳)</label>
             <input type="number" min="0" step="0.01" style={inputStyle} value={form.baseSalary} onChange={update('baseSalary')} />
           </div>
           <div style={fieldWrap}>
-            <label style={labelStyle}>Allowances ($)</label>
+            <label style={labelStyle}>Allowances (৳)</label>
             <input type="number" min="0" step="0.01" style={inputStyle} value={form.allowances} onChange={update('allowances')} />
           </div>
         </div>
 
         <div className="form-grid-2">
           <div style={fieldWrap}>
-            <label style={labelStyle}>Bonus ($)</label>
+            <label style={labelStyle}>Bonus (৳)</label>
             <input type="number" min="0" step="0.01" style={inputStyle} value={form.bonus} onChange={update('bonus')} />
           </div>
           <div style={fieldWrap}>
-            <label style={labelStyle}>Deductions ($)</label>
+            <label style={labelStyle}>Deductions (৳)</label>
             <input type="number" min="0" step="0.01" style={inputStyle} value={form.deductions} onChange={update('deductions')} />
           </div>
         </div>
@@ -113,7 +145,7 @@ export default function PayrollEditModal({ record, onClose, onSaved, onSubmit })
           }}
         >
           <span>Net pay</span>
-          <span className="mono">{exactMoney(netPay)}</span>
+          <span className="mono">{exactBDT(netPay)}</span>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>

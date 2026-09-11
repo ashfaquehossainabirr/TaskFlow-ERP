@@ -4,7 +4,8 @@ import PayrollEditModal from '../components/PayrollEditModal';
 import Spinner from '../components/Spinner';
 import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
-import { exactMoney } from '../utils/currency';
+import { downloadFile } from '../utils/download';
+import { exactBDT } from '../utils/currency';
 import { PAYROLL_STATUS_COLORS, pillStyle } from '../erp/badges';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
@@ -17,6 +18,20 @@ export default function Payroll() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [banner, setBanner] = useState('');
   const [search, setSearch] = useState('');
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [pdfError, setPdfError] = useState('');
+
+  const handleDownloadPdf = async (record) => {
+    setDownloadingId(record._id);
+    setPdfError('');
+    try {
+      await downloadFile(`/payroll/${record._id}/pdf`, `Payslip-${record.employee?.name || 'employee'}-${record.month}.pdf`);
+    } catch (err) {
+      setPdfError(err.response?.data?.message || 'Failed to download this payslip PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -129,30 +144,47 @@ export default function Payroll() {
         </div>
       )}
 
+      {pdfError && (
+        <div
+          style={{
+            background: 'rgba(239, 100, 97, 0.1)',
+            border: '1px solid rgba(239, 100, 97, 0.35)',
+            color: 'var(--text-error)',
+            padding: '10px 12px',
+            borderRadius: 8,
+            fontSize: 13,
+            marginBottom: 16,
+          }}
+        >
+          {pdfError}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 22 }}>
         <div style={cardStyle}>
           <div style={cardLabelStyle}>Total payroll</div>
           <div className="mono" style={{ fontSize: 22, fontWeight: 700 }}>
-            {exactMoney(totals.netTotal)}
+            {exactBDT(totals.netTotal)}
           </div>
         </div>
         <div style={cardStyle}>
           <div style={cardLabelStyle}>Paid out</div>
           <div className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-delivered)' }}>
-            {exactMoney(totals.paidTotal)}
+            {exactBDT(totals.paidTotal)}
           </div>
         </div>
         <div style={cardStyle}>
           <div style={cardLabelStyle}>Pending</div>
           <div className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-hold)' }}>
-            {exactMoney(totals.pendingTotal)}
+            {exactBDT(totals.pendingTotal)}
           </div>
         </div>
       </div>
 
       <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
         Generating pulls the monthly salary set on each active employee's profile (Team &amp; Access). Employees without a
-        salary set are skipped.
+        salary set are skipped. Absent days are deducted at that employee's daily rate (monthly salary ÷ days in the
+        month); every 4 late days deducts an extra 1% of base salary.
       </p>
 
       <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -215,22 +247,36 @@ export default function Payroll() {
                     <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{r.employee?.designation || r.employee?.department || ''}</div>
                   </td>
                   <td style={tdStyle} className="mono">
-                    {exactMoney(r.baseSalary)}
+                    {exactBDT(r.baseSalary)}
                   </td>
                   <td style={tdStyle} className="mono">
-                    {exactMoney(r.allowances + r.bonus)}
+                    {exactBDT(r.allowances + r.bonus)}
                   </td>
                   <td style={tdStyle} className="mono">
-                    {exactMoney(r.deductions)}
+                    {exactBDT(r.deductions)}
+                    {(r.attendance?.absentDays > 0 || r.attendance?.lateDays > 0) && (
+                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans, inherit)', marginTop: 2 }}>
+                        {r.attendance.absentDays > 0 && `${r.attendance.absentDays}d absent`}
+                        {r.attendance.absentDays > 0 && r.attendance.lateDays > 0 && ' · '}
+                        {r.attendance.lateDays > 0 && `${r.attendance.lateDays}d late`}
+                      </div>
+                    )}
                   </td>
                   <td className="mono" style={{ ...tdStyle, fontWeight: 700 }}>
-                    {exactMoney(r.netPay)}
+                    {exactBDT(r.netPay)}
                   </td>
                   <td style={tdStyle}>
                     <span style={pillStyle(PAYROLL_STATUS_COLORS[r.status])}>{r.status}</span>
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => handleDownloadPdf(r)}
+                        disabled={downloadingId === r._id}
+                        style={iconBtnStyle}
+                      >
+                        {downloadingId === r._id ? 'Preparing…' : 'PDF'}
+                      </button>
                       <button onClick={() => setEditingRecord(r)} style={iconBtnStyle}>
                         Edit
                       </button>

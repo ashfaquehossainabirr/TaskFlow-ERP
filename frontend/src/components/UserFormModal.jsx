@@ -205,7 +205,7 @@ export default function UserFormModal({ user, managers, currentUser, onClose, on
         </div>
 
         <div style={fieldWrap}>
-          <label style={labelStyle}>Monthly salary ($, for payroll)</label>
+          <label style={labelStyle}>Monthly salary (৳, for payroll)</label>
           <input
             type="number"
             min="0"

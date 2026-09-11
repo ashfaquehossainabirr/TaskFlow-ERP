@@ -2,6 +2,7 @@ const express = require('express');
 const Invoice = require('../models/Invoice');
 const Client = require('../models/Client');
 const { protect, authorize } = require('../middleware/auth');
+const { newDocument, streamPdf, drawBrandHeader, labelValue, drawTableHeader, drawTableRow, money } = require('../utils/pdf');
 const router = express.Router();
 
 router.use(protect);
@@ -70,6 +71,102 @@ router.get('/:id', async (req, res) => {
     res.json(invoice);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch invoice', error: err.message });
+  }
+});
+
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('client', 'name company email phone address')
+      .populate('project', 'name');
+    if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+
+    const doc = newDocument();
+    streamPdf(res, doc, `${invoice.invoiceNumber}.pdf`);
+
+    drawBrandHeader(doc, 'INVOICE', invoice.invoiceNumber);
+
+    const infoY = 130;
+    labelValue(doc, 50, infoY, 'Bill To', invoice.client?.company || invoice.client?.name || 'Client', { bold: true });
+    if (invoice.client?.name && invoice.client?.company) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(9.5).text(invoice.client.name, 50, infoY + 26);
+    }
+    if (invoice.client?.email) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(9.5).text(invoice.client.email, 50, doc.y + 2);
+    }
+    if (invoice.client?.address) {
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(9.5).text(invoice.client.address, 50, doc.y + 2, { width: 240 });
+    }
+
+    labelValue(doc, 330, infoY, 'Status', invoice.status.toUpperCase(), { width: 100 });
+    labelValue(doc, 430, infoY, 'Issue Date', new Date(invoice.issueDate).toLocaleDateString(), { width: 115 });
+    labelValue(doc, 330, infoY + 46, 'Due Date', new Date(invoice.dueDate).toLocaleDateString(), { width: 100 });
+    if (invoice.project?.name) {
+      labelValue(doc, 430, infoY + 46, 'Project', invoice.project.name, { width: 115 });
+    }
+
+    const tableX = 50;
+    const columns = [
+      { key: 'description', label: 'Description', x: 0, width: 230 },
+      { key: 'quantity', label: 'Qty', x: 230, width: 60, align: 'right' },
+      { key: 'rate', label: 'Rate', x: 290, width: 90, align: 'right' },
+      { key: 'amount', label: 'Amount', x: 380, width: 115, align: 'right' },
+    ];
+    let y = infoY + 100;
+    drawTableHeader(doc, tableX, y, columns);
+    y += 24;
+
+    invoice.items.forEach((item, idx) => {
+      if (y > 700) {
+        doc.addPage();
+        y = 60;
+        drawTableHeader(doc, tableX, y, columns);
+        y += 24;
+      }
+      if (idx % 2 === 1) {
+        doc.rect(tableX, y - 6, 495, 20).fill('#f7f8fa');
+      }
+      drawTableRow(doc, tableX, y, columns, [
+        item.description,
+        item.quantity,
+        money(item.rate),
+        money(item.quantity * item.rate),
+      ]);
+      y += 22;
+    });
+
+    y += 10;
+    doc.moveTo(tableX, y).lineTo(545, y).strokeColor('#e2e5ea').lineWidth(1).stroke();
+    y += 14;
+
+    const totalsX = 350;
+    const totalsWidth = 145;
+    const totalRow = (label, value, opts = {}) => {
+      doc.fillColor(opts.bold ? '#1a2028' : '#6b7280').font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(opts.bold ? 12 : 10);
+      doc.text(label, totalsX, y, { width: 90 });
+      doc.text(value, totalsX + 90, y, { width: 55, align: 'right' });
+      y += opts.bold ? 22 : 18;
+    };
+    totalRow('Subtotal', money(invoice.subtotal));
+    if (invoice.taxPercent > 0) totalRow(`Tax (${invoice.taxPercent}%)`, money(invoice.taxAmount));
+    if (invoice.discount > 0) totalRow('Discount', `-${money(invoice.discount)}`);
+    y += 4;
+    doc.moveTo(totalsX, y - 4).lineTo(totalsX + totalsWidth, y - 4).strokeColor('#e2e5ea').stroke();
+    totalRow('Total Due', money(invoice.total), { bold: true });
+
+    if (invoice.notes) {
+      y += 20;
+      doc.fillColor('#6b7280').font('Helvetica-Bold').fontSize(8.5).text('NOTES', tableX, y);
+      doc.fillColor('#1a2028').font('Helvetica').fontSize(10).text(invoice.notes, tableX, y + 14, { width: 495 });
+    }
+
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to generate invoice PDF', error: err.message });
+    } else {
+      res.end();
+    }
   }
 });
 
