@@ -66,12 +66,29 @@ export default function Login() {
           </div>
           <span
             style={{
+              position: 'relative',
+              display: 'inline-block',
               fontFamily: 'var(--font-display)',
               fontWeight: 700,
               fontSize: 19,
             }}
           >
             TaskFlow
+            <span
+              style={{
+                position: 'absolute',
+                top: -8,
+                right: -22,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                fontSize: 9,
+                letterSpacing: '0.04em',
+                color: 'var(--text-secondary)',
+                lineHeight: 1,
+              }}
+            >
+              ERP
+            </span>
           </span>
         </div>
 
@@ -220,12 +237,29 @@ export default function Login() {
           </div>
           <span
             style={{
+              position: 'relative',
+              display: 'inline-block',
               fontFamily: 'var(--font-display)',
               fontWeight: 700,
               fontSize: 19,
             }}
           >
             TaskFlow
+            <span
+              style={{
+                position: 'absolute',
+                top: -8,
+                right: -22,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                fontSize: 9,
+                letterSpacing: '0.04em',
+                color: 'var(--text-secondary)',
+                lineHeight: 1,
+              }}
+            >
+              ERP
+            </span>
           </span>
         </div>
         <form

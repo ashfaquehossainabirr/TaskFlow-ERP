@@ -136,7 +136,10 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="sidebar-head">
           <div className="sidebar-brand">
             <div className="sidebar-logo">T</div>
-            <span className="sidebar-brand-name">TaskFlow</span>
+            <span className="sidebar-brand-name">
+              TaskFlow
+              <span className="sidebar-brand-suffix">ERP</span>
+            </span>
           </div>
           <button
             type="button"
@@ -340,12 +343,25 @@ export default function Sidebar({ isOpen, onClose }) {
           color: var(--text-on-accent);
         }
         .sidebar-brand-name {
+          position: relative;
+          display: inline-block;
           font-family: var(--font-display);
           font-weight: 700;
           font-size: 17px;
           letter-spacing: -0.01em;
           white-space: nowrap;
-          overflow: hidden;
+          overflow: visible;
+        }
+        .sidebar-brand-suffix {
+          position: absolute;
+          top: -8px;
+          right: -22px;
+          font-family: var(--font-mono);
+          font-weight: 700;
+          font-size: 9px;
+          letter-spacing: 0.04em;
+          color: var(--text-secondary);
+          line-height: 1;
         }
         .sidebar-collapsed .sidebar-head {
           flex-direction: column;

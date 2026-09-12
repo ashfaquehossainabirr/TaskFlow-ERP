@@ -15,7 +15,10 @@ export default function PageShell({ title, subtitle, actions, children }) {
           <span />
           <span />
         </button>
-        <span className="mobile-topbar-title">TaskFlow</span>
+        <span className="mobile-topbar-title">
+          TaskFlow
+          <span className="mobile-topbar-title-suffix">ERP</span>
+        </span>
         <div className="mobile-topbar-spacer" />
         <NotificationBell />
       </div>
@@ -104,9 +107,22 @@ export default function PageShell({ title, subtitle, actions, children }) {
           border-radius: 2px;
         }
         .mobile-topbar-title {
+          position: relative;
+          display: inline-block;
           font-family: var(--font-display);
           font-weight: 700;
           font-size: 16px;
+        }
+        .mobile-topbar-title-suffix {
+          position: absolute;
+          top: -7px;
+          right: -20px;
+          font-family: var(--font-mono);
+          font-weight: 700;
+          font-size: 8px;
+          letter-spacing: 0.04em;
+          color: var(--text-secondary);
+          line-height: 1;
         }
         .mobile-topbar-spacer {
           flex: 1;
