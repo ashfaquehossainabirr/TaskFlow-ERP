@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageShell from '../components/PageShell';
 import PayrollEditModal from '../components/PayrollEditModal';
+import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
 import SearchInput from '../components/SearchInput';
 import api from '../api/axios';
@@ -20,6 +21,7 @@ export default function Payroll() {
   const [search, setSearch] = useState('');
   const [downloadingId, setDownloadingId] = useState(null);
   const [pdfError, setPdfError] = useState('');
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
 
   const handleDownloadPdf = async (record) => {
     setDownloadingId(record._id);
@@ -70,11 +72,12 @@ export default function Payroll() {
   };
 
   const handleRegenerate = () => {
-    const confirmed = window.confirm(
-      `Regenerate payroll for ${month}? Every pending payslip for this month will be deleted and rebuilt from the latest attendance data. Any manual edits or notes on those payslips will be lost. Payslips already marked "paid" are never touched.`
-    );
-    if (!confirmed) return;
-    handleGenerate(true);
+    setConfirmRegenerate(true);
+  };
+
+  const performRegenerate = async () => {
+    await handleGenerate(true);
+    setConfirmRegenerate(false);
   };
 
   const handleSubmit = async (form, id) => {
@@ -345,6 +348,17 @@ export default function Payroll() {
             load();
           }}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {confirmRegenerate && (
+        <ConfirmModal
+          title="Regenerate payroll"
+          message={`Regenerate payroll for ${month}? Every pending payslip for this month will be deleted and rebuilt from the latest attendance data. Any manual edits or notes on those payslips will be lost. Payslips already marked "paid" are never touched.`}
+          confirmLabel="Regenerate payroll"
+          busyLabel="Regenerating…"
+          onConfirm={performRegenerate}
+          onClose={() => setConfirmRegenerate(false)}
         />
       )}
     </PageShell>

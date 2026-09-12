@@ -17,6 +17,7 @@ export default function ConfirmModal({
   title = 'Confirm delete',
   message,
   confirmLabel = 'Delete',
+  busyLabel = 'Deleting…',
   cancelLabel = 'Cancel',
   onConfirm,
   onClose,
@@ -45,9 +46,11 @@ export default function ConfirmModal({
         {message}
       </p>
       <div
+        className="confirm-modal-actions"
         style={{
           display: 'flex',
           justifyContent: 'flex-end',
+          flexWrap: 'wrap',
           gap: 10,
         }}
       >
@@ -64,9 +67,19 @@ export default function ConfirmModal({
           onClick={handleConfirm}
           disabled={busy}
         >
-          {busy ? 'Deleting…' : confirmLabel}
+          {busy ? busyLabel : confirmLabel}
         </button>
       </div>
+      <style>{`
+        @media screen and (max-width: 480px) {
+          .confirm-modal-actions {
+            flex-direction: column-reverse;
+          }
+          .confirm-modal-actions button {
+            width: 100%;
+          }
+        }
+      `}</style>
     </Modal>
   );
 }
