@@ -115,7 +115,7 @@ export default function PageShell({ title, subtitle, actions, children }) {
         }
         .mobile-topbar-title-suffix {
           position: absolute;
-          top: -2px;
+          top: 1px;
           right: -20px;
           font-family: var(--font-mono);
           font-weight: 700;
