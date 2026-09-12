@@ -77,7 +77,7 @@ export default function Login() {
             <span
               style={{
                 position: 'absolute',
-                top: -8,
+                top: -5,
                 right: -22,
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
@@ -248,7 +248,7 @@ export default function Login() {
             <span
               style={{
                 position: 'absolute',
-                top: -8,
+                top: -5,
                 right: -22,
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 700,

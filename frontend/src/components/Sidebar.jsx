@@ -354,7 +354,7 @@ export default function Sidebar({ isOpen, onClose }) {
         }
         .sidebar-brand-suffix {
           position: absolute;
-          top: -8px;
+          top: -3px;
           right: -22px;
           font-family: var(--font-mono);
           font-weight: 700;
