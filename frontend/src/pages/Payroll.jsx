@@ -211,15 +211,6 @@ export default function Payroll() {
         </div>
       </div>
 
-      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>
-        Generating pulls the monthly salary set on each active employee's profile (Team &amp; Access) along with their
-        attendance for the month. Present days (including late arrivals) are counted for reference; absent days are
-        deducted at the employee's daily rate (monthly salary ÷ days in the month); half-days deduct half of that daily
-        rate; every 4 late days deducts an extra 1% of base salary; leave and holidays are never deducted. If attendance
-        gets corrected after payroll was already generated, use "Regenerate payroll" to rebuild pending payslips for the
-        month from the latest attendance data — payslips already marked paid are always left untouched.
-      </p>
-
       <div style={{ marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <SearchInput value={search} onChange={setSearch} placeholder="Search payroll by employee, role, or department…" />
         {search && (
